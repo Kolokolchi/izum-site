@@ -40,8 +40,8 @@ const SEWN = ["Пошив", "партиями, собственное произ
 
 window.IZUM_ITEMS = [
   {
-    id: "hoodie", img: "img/turn/hoodie/lo/000.webp", w: 1014, h: 1267,
-    turn: { dir: "img/turn/hoodie", n: 118, fw: 1048, fh: 1388, ox: 18, oy: 36, ow: 1014, oh: 1267 },
+    id: "hoodie", img: "img/turn/hoodie/lo/000.webp", w: 1018, h: 1267,
+    turn: { dir: "img/turn/hoodie", n: 118, fw: 1048, fh: 1388, ox: 16, oy: 33, ow: 1018, oh: 1267 },
     print: { quad: [[0.30, 0.33], [0.70, 0.33], [0.70, 0.60], [0.30, 0.60]], surf: "accent", r: 0.13, dir: 1 },
     places: { back: { k: 62, quad: [[0.27, 0.30], [0.73, 0.30], [0.73, 0.70], [0.27, 0.70]], surf: "accent" }, sleeve: { k: 36, quad: [[0.40, 0.36], [0.60, 0.36], [0.60, 0.52], [0.40, 0.52]], surf: "accent" } },
     inner: { surf: "dark", in: [0.5, 0.095, 0.19, 0.095], cut: [0.495, 0.15, 0.1, 0.05], names: ["Снаружи", "Капюшон внутри"] },
@@ -50,8 +50,8 @@ window.IZUM_ITEMS = [
     specs: [["Модель", "худи с капюшоном, карман-кенгуру"], ["Цвет", "под фирменный цвет заказчика"], SEWN],
   },
   {
-    id: "sweatshirt", img: "img/turn/sweatshirt/lo/000.webp", w: 1019, h: 1172,
-    turn: { dir: "img/turn/sweatshirt", n: 118, fw: 1072, fh: 1296, ox: 27, oy: 21, ow: 1019, oh: 1172 },
+    id: "sweatshirt", img: "img/turn/sweatshirt/lo/000.webp", w: 1024, h: 1170,
+    turn: { dir: "img/turn/sweatshirt", n: 118, fw: 1072, fh: 1296, ox: 25, oy: 21, ow: 1024, oh: 1170 },
     print: { quad: [[0.29, 0.24], [0.71, 0.24], [0.71, 0.60], [0.29, 0.60]], surf: "accent", r: 0.13, dir: -1 },
     places: { back: { k: 66, quad: [[0.27, 0.20], [0.73, 0.20], [0.73, 0.66], [0.27, 0.66]], surf: "accent" }, sleeve: { k: 42, quad: [[0.40, 0.30], [0.60, 0.30], [0.60, 0.46], [0.40, 0.46]], surf: "accent" } },
     inner: { surf: "accent", in: [0.5, 0.04, 0.122, 0.063], cut: [0.5, 0.04, 0.122, 0.063] },
@@ -60,8 +60,8 @@ window.IZUM_ITEMS = [
     specs: [["Модель", "свитшот, круглый вырез"], ["Цвет", "под фирменный цвет заказчика"], SEWN],
   },
   {
-    id: "tshirt", img: "img/turn/tshirt/lo/000.webp", w: 1187, h: 1196,
-    turn: { dir: "img/turn/tshirt", n: 118, fw: 1224, fh: 1292, ox: 17, oy: 18, ow: 1187, oh: 1196 },
+    id: "tshirt", img: "img/turn/tshirt/lo/000.webp", w: 1192, h: 1197,
+    turn: { dir: "img/turn/tshirt", n: 118, fw: 1224, fh: 1292, ox: 12, oy: 17, ow: 1192, oh: 1197 },
     print: { quad: [[0.31, 0.22], [0.69, 0.22], [0.69, 0.62], [0.31, 0.62]], surf: "accent", r: 0.12, dir: -1 },
     places: { back: { k: 70, quad: [[0.30, 0.18], [0.70, 0.18], [0.70, 0.64], [0.30, 0.64]], surf: "accent" }, sleeve: { k: 44, quad: [[0.40, 0.22], [0.60, 0.22], [0.60, 0.36], [0.40, 0.36]], surf: "accent" } },
     inner: { surf: "accent", in: [0.495, 0.035, 0.097, 0.058], cut: [0.495, 0.035, 0.097, 0.058] },
@@ -70,8 +70,8 @@ window.IZUM_ITEMS = [
     specs: [["Модель", "футболка оверсайз"], ["Цвет", "под фирменный цвет заказчика"], SEWN],
   },
   {
-    id: "polo", img: "img/turn/polo/lo/000.webp", w: 1014, h: 1272,
-    turn: { dir: "img/turn/polo", n: 118, fw: 1056, fh: 1340, ox: 10, oy: 21, ow: 1014, oh: 1272 },
+    id: "polo", img: "img/turn/polo/lo/000.webp", w: 1010, h: 1249,
+    turn: { dir: "img/turn/polo", n: 118, fw: 1056, fh: 1340, ox: 12, oy: 23, ow: 1010, oh: 1249 },
     print: { quad: [[0.56, 0.27], [0.74, 0.27], [0.74, 0.40], [0.56, 0.40]], surf: "accent", r: 0.19, dir: -1, phi: 50 },
     places: { back: { k: 76, quad: [[0.28, 0.24], [0.72, 0.24], [0.72, 0.66], [0.28, 0.66]], surf: "accent" }, sleeve: { k: 46, quad: [[0.42, 0.24], [0.58, 0.24], [0.58, 0.34], [0.42, 0.34]], surf: "accent" } },
     inner: { surf: "accent", in: [0.485, 0.075, 0.11, 0.062], cut: [0.485, 0.075, 0.11, 0.062] },
@@ -80,8 +80,8 @@ window.IZUM_ITEMS = [
     specs: [["Модель", "поло, контрастный воротник и манжеты"], ["Цвет", "под фирменный цвет заказчика"], SEWN],
   },
   {
-    id: "bomber", img: "img/turn/bomber/lo/000.webp", w: 1097, h: 1242,
-    turn: { dir: "img/turn/bomber", n: 118, fw: 1124, fh: 1356, ox: 9, oy: 14, ow: 1097, oh: 1242 },
+    id: "bomber", img: "img/turn/bomber/lo/000.webp", w: 1094, h: 1237,
+    turn: { dir: "img/turn/bomber", n: 118, fw: 1124, fh: 1356, ox: 11, oy: 17, ow: 1094, oh: 1237 },
     print: { quad: [[0.59, 0.30], [0.78, 0.30], [0.78, 0.44], [0.59, 0.44]], surf: "dark", r: 0.18, dir: -1, phi: 55 },
     places: { back: { k: 66, quad: [[0.28, 0.24], [0.72, 0.24], [0.72, 0.66], [0.28, 0.66]], surf: "dark" }, sleeve: { k: 42, quad: [[0.40, 0.32], [0.60, 0.32], [0.60, 0.48], [0.40, 0.48]], surf: "dark" } },
     inner: { surf: "accent", names: ["Снаружи", "Подкладка"] },
@@ -90,8 +90,8 @@ window.IZUM_ITEMS = [
     specs: [["Модель", "бомбер на молнии"], ["Акцент", "подкладка и полосы в цвет бренда"], SEWN],
   },
   {
-    id: "tote", img: "img/turn/tote/lo/000.webp", w: 984, h: 1278,
-    turn: { dir: "img/turn/tote", n: 118, fw: 1024, fh: 1372, ox: 17, oy: 12, ow: 984, oh: 1278 },
+    id: "tote", img: "img/turn/tote/lo/000.webp", w: 980, h: 1269,
+    turn: { dir: "img/turn/tote", n: 118, fw: 1024, fh: 1372, ox: 19, oy: 13, ow: 980, oh: 1269 },
     print: { quad: [[0.16, 0.43], [0.84, 0.43], [0.84, 0.905], [0.16, 0.905]], surf: "dark", r: 0.08, dir: 1 },
     inner: { surf: "accent", names: ["Снаружи", "Подкладка"] },
     name: "Дутый шопер", set: ACC,
@@ -99,8 +99,8 @@ window.IZUM_ITEMS = [
     specs: [["Верх", "стёганая плащевая ткань"], ["Подкладка", "в цвет бренда"], SEWN],
   },
   {
-    id: "ushanka", img: "img/turn/ushanka/lo/000.webp", w: 885, h: 1234,
-    turn: { dir: "img/turn/ushanka", n: 118, fw: 996, fh: 1296, ox: 72, oy: 11, ow: 885, oh: 1234 },
+    id: "ushanka", img: "img/turn/ushanka/lo/000.webp", w: 881, h: 1227,
+    turn: { dir: "img/turn/ushanka", n: 118, fw: 996, fh: 1296, ox: 74, oy: 13, ow: 881, oh: 1227 },
     print: { quad: [[0.15, 0.155], [0.52, 0.14], [0.52, 0.325], [0.15, 0.34]], surf: "dark" },
     inner: { surf: "accent", names: ["Верх", "Мех"] },
     name: "Ушанка", set: ACC,

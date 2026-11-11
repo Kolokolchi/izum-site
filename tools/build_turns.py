@@ -30,7 +30,7 @@ for pid in names:
     else:
         block = src[src.index(f'id: "{pid}"'):]
         block = block[:block.index("specs:")]
-        extra = ",".join(re.findall(r"k: (\d+)", block))   # кадры спины и рукава из places
+        extra = ",".join(re.findall(r"\bk: (\d+)", block))   # кадры спины и рукава из places
         out = subprocess.run([sys.executable, "-I", os.path.join(root, "tools", "make_turntable.py"), os.path.join(video, f"turn_{pid}4k.mp4"), pid, extra],
                              capture_output=True, text=True, encoding="utf-8")
         print(pid, out.stdout.strip() or out.stderr.strip()[-400:])
