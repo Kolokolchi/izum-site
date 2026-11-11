@@ -345,14 +345,15 @@ void main() {
     for (const b of t.hi) if (b) b.close();
     t.hi = new Array(t.n); t.hiState = 0; t.dirty = true;
   }
-  function frameOf(t, k, sharp) {
+  function frameOf(t, k, sharp) {        // t.at — номер кадра, который реально отдан
+    t.at = k;
     if (sharp && t.hi[k]) return t.hi[k];
     if (t.md[k]) return t.md[k];
     if (t.sm[k]) return t.sm[k];
-    for (let j = 1; j < t.n; j++) {         // нужный кадр ещё не распакован — берём ближайший готовый
+    for (let j = 1; j < t.n; j++) {         // нужный кадр ещё не загружен — берём ближайший готовый
       const a = mod(k - j, t.n), b = mod(k + j, t.n);
-      if (t.md[a] || t.sm[a]) return t.md[a] || t.sm[a];
-      if (t.md[b] || t.sm[b]) return t.md[b] || t.sm[b];
+      if (t.md[a] || t.sm[a]) { t.at = a; return t.md[a] || t.sm[a]; }
+      if (t.md[b] || t.sm[b]) { t.at = b; return t.md[b] || t.sm[b]; }
     }
     return null;
   }
@@ -698,8 +699,12 @@ void main() {
       if (n.turn) {
         const tt = n.turn;
         // Всегда один чёткий кадр — ближайший к углу (смесь соседних даёт двойной контур).
-        const kf = mod(Math.round((ry / 360) * tt.n), tt.n);
-        const img = frameOf(tt, kf, true);
+        const want = mod(Math.round((ry / 360) * tt.n), tt.n);
+        const img = frameOf(tt, want, true), kf = tt.at;
+        // Пока нужного кадра нет (медленная сеть), показываем ближайший загруженный и доворачиваем его
+        // в объёме на недостающий угол — вещь вращается с первой секунды, а не стоит плоской картинкой.
+        let lack = ry - (kf / tt.n) * 360; lack = mod(lack + 180, 360) - 180;
+        if (kf === want) lack = 0;
         // Логотип держится на вещи, пока его место смотрит в камеру, и растворяется при развороте.
         // Паттерн идёт по всей вещи и виден с любой стороны.
         let zone = null, theta = 0, lk = 0;
@@ -713,12 +718,13 @@ void main() {
           }
           if (zone) lk = Math.round(clamp(((zone.r ? 36 : 19) - Math.abs(theta)) / 10, 0, 1) * 20) / 20;
         }
+        if (Math.abs(lack) > 75 && C.mode !== "pattern") lk = 0;   // довёрнутый «спиной» кадр — без зеркального логотипа
         const pk = S.color.id + "|" + (lk ? C.ver + ":" + lk + ":" + kf + ":" + (zone ? zone.id : "") : "");
         if (img && (tt.dirty || img !== tt.shown || pk !== tt.pk)) {
           tt.shown = img; tt.dirty = false; tt.pk = pk;
           paint(i, tt, img, lk, theta, zone);
         }
-        n.el.style.transform = `translate3d(${x}px,${y}px,${z}px) rotateZ(${rz}deg) scale(${sc})`;
+        n.el.style.transform = `translate3d(${x}px,${y}px,${z}px) rotateZ(${rz}deg)${lack ? ` rotateY(${lack}deg)` : ""} scale(${sc})`;
         n.sh.style.visibility = "hidden";   // тень уже есть в кадрах
         continue;
       }
