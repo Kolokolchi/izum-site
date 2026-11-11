@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Izum — пошив одежды оптом и корпоративный мерч · Алматы</title>
+  <meta name="description" content="Собственное швейное и печатное производство в Алматы: пошив брендированной одежды оптом, корпоративный мерч, нанесение логотипов.">
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="img/izum-logo.png">
+  <link rel="preload" href="fonts/GothamPro-BlackItalic.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="hero.css">
+  <link rel="stylesheet" href="site.css">
+</head>
+<body>
+  <!-- ================= ПЕРВЫЙ ЭКРАН: слайдер-примерочная ================= -->
+  <section class="app" id="app" data-mode="browse" data-chapter="0">
+    <div class="bg bg-studio"></div>
+    <div class="bg bg-flood" id="flood"></div>
+    <div class="ghost" aria-hidden="true"><span>IZUM</span></div>
+    <div class="floor" aria-hidden="true"></div>
+
+    <header class="top">
+      <a class="brand" href="#top">
+        <img src="img/izum-logo.png" alt="Izum Design &amp; Production">
+        <span>Izum<br>Design &amp; Production</span>
+      </a>
+      <nav class="menu">
+        <a href="products.html">Продукция</a>
+        <a href="wholesale.html">Одежда оптом</a>
+        <a href="production.html">Производство</a>
+        <a class="menu-cta" href="#contacts">Связаться</a>
+      </nav>
+      <span class="count" id="count">01 / 06</span>
+    </header>
+
+    <div class="pedestal pedestal-top" aria-hidden="true"></div>
+    <div class="pedestal pedestal-bottom" aria-hidden="true"></div>
+
+    <div class="stage" id="stage"></div>
+
+    <!-- Режим очереди -->
+    <div class="browse-ui">
+      <button class="arrow arrow-prev" id="prev" aria-label="Предыдущая вещь"><svg viewBox="0 0 24 24"><path d="M15 4l-8 8 8 8"/></svg></button>
+      <button class="arrow arrow-next" id="next" aria-label="Следующая вещь"><svg viewBox="0 0 24 24"><path d="M9 4l8 8-8 8"/></svg></button>
+      <div class="caption">
+        <div class="caption-set" id="capSet"></div>
+        <h1 class="caption-name" id="capName"></h1>
+        <div class="rail"><i id="railDot"></i></div>
+        <button class="open-btn" id="openBtn">Примерить свой логотип</button>
+        <div class="swatches" data-swatches aria-label="Цвет"></div>
+      </div>
+    </div>
+
+    <!-- Режим вещи -->
+    <div class="detail-ui" id="detail" aria-live="polite">
+      <div class="panel">
+        <div class="kicker"><b id="dNum">01</b><span id="dSet"></span></div>
+        <h2 class="title" id="dTitle"></h2>
+        <div class="chapters">
+          <section class="chapter" data-ch="0">
+            <p class="lead" id="dText"></p>
+            <div class="kit"><span>Нанесение</span><ul id="dKit"></ul></div>
+            <button class="try" id="tryBtn">Примерить свой логотип<svg viewBox="0 0 24 24"><path d="M9 4l8 8-8 8"/></svg></button>
+          </section>
+          <section class="chapter" data-ch="1">
+            <h3>Характеристики</h3>
+            <dl class="specs" id="dSpecs"></dl>
+          </section>
+          <section class="chapter" data-ch="2">
+            <h3>Ваш логотип</h3>
+            <div class="tool">
+              <div class="tool-row">
+                <label class="upload" id="drop">
+                  <input type="file" id="file" accept="image/png,image/jpeg,image/webp,image/svg+xml">
+                  <b>Загрузить файл</b><small>PNG, SVG, JPG — или перетащите сюда</small>
+                </label>
+                <input class="text-logo" id="textLogo" type="text" maxlength="18" placeholder="или напишите название" autocomplete="off">
+              </div>
+              <div class="tool-row">
+                <div class="seg" id="segMode" role="group" aria-label="Способ">
+                  <button data-v="logo" class="on">Логотип</button>
+                  <button data-v="pattern">Паттерн</button>
+                </div>
+                <div class="seg" id="segTint" role="group" aria-label="Цвет нанесения">
+                  <button data-v="orig" class="on">Как в файле</button>
+                  <button data-v="white">Белый</button>
+                  <button data-v="black">Чёрный</button>
+                </div>
+              </div>
+              <label class="range"><span>Размер</span><input type="range" id="size" min="35" max="220" value="100"></label>
+              <div class="tool-row">
+                <span class="tool-label">Цвет вещи</span>
+                <div class="swatches" data-swatches aria-label="Цвет"></div>
+              </div>
+              <p class="tool-hint" id="toolHint">Логотип можно двигать прямо на вещи.</p>
+              <div class="tool-row">
+                <button class="lead-btn" id="leadBtn">Получить расчёт</button>
+                <button class="ghost-btn" id="clearBtn">Убрать логотип</button>
+              </div>
+            </div>
+          </section>
+        </div>
+        <div class="panel-nav">
+          <button class="back" id="back"><svg viewBox="0 0 24 24"><path d="M15 4l-8 8 8 8"/></svg>Ко всем вещам</button>
+          <button class="more" id="more">Дальше<svg viewBox="0 0 24 24"><path d="M9 4l8 8-8 8"/></svg></button>
+        </div>
+      </div>
+      <nav class="dots" id="dots" aria-label="Разделы">
+        <button data-ch="0" aria-label="Описание"><i></i><span>Описание</span></button>
+        <button data-ch="1" aria-label="Характеристики"><i></i><span>Характеристики</span></button>
+        <button data-ch="2" aria-label="Ваш логотип"><i></i><span>Ваш логотип</span></button>
+      </nav>
+      <button class="arrow arrow-prev d-arrow" id="dPrev" aria-label="Предыдущая вещь"><svg viewBox="0 0 24 24"><path d="M15 4l-8 8 8 8"/></svg></button>
+      <button class="arrow arrow-next d-arrow" id="dNext" aria-label="Следующая вещь"><svg viewBox="0 0 24 24"><path d="M9 4l8 8-8 8"/></svg></button>
+    </div>
+
+    <div class="hint" id="hint">Перетаскивайте очередь · нажмите на вещь · выберите цвет</div>
+  </section>
+
+  <!-- ================= ЗАЯВКА С МАКЕТОМ ================= -->
+  <div class="order" id="lead" hidden>
+    <div class="lead-box" role="dialog" aria-modal="true" aria-labelledby="leadTitle">
+      <button class="lead-x" id="leadX" aria-label="Закрыть">×</button>
+      <div class="lead-shot"><img id="leadImg" alt="Макет"><p id="leadSum"></p></div>
+      <form class="lead-form" id="leadForm">
+        <h2 id="leadTitle">Расчёт по вашему макету</h2>
+        <p>Менеджер получит вещь, цвет и картинку с примеркой и вернётся с расчётом.</p>
+        <input name="name" placeholder="Имя*" required autocomplete="name">
+        <input name="phone" type="tel" placeholder="Телефон*" required autocomplete="tel">
+        <input name="company" placeholder="Компания" autocomplete="organization">
+        <select name="qty" aria-label="Тираж">
+          <option value="">Тираж</option>
+          <option>до 50 шт.</option><option>50–200 шт.</option><option>200–1000 шт.</option><option>больше 1000 шт.</option>
+        </select>
+        <button type="submit">Отправить в WhatsApp</button>
+        <a id="leadSave" download="izum-maket.png">Сохранить картинку макета</a>
+        <small id="leadNote">Откроется WhatsApp с готовым текстом заявки. Картинку макета прикрепите к сообщению — она сохранится по ссылке выше.</small>
+      </form>
+    </div>
+  </div>
+
+  <!-- ================= ЧЕРНОВИК РАЗДЕЛОВ ================= -->
+  <main>
+    <section class="s s-intro">
+      <p class="eyebrow">Алматы · собственное производство</p>
+      <h2 class="h-xl">Мы не рекламное агентство.<br><em>Мы — продакшн.</em></h2>
+      <p class="p-lg">Шьём одежду партиями, делаем корпоративный мерч и наносим логотипы — на собственной швейной и печатной базе в Алматы. Один подрядчик вместо нескольких.</p>
+    </section>
+
+    <section class="s s-dirs" id="products">
+      <a class="dir dir-main" id="wholesale" href="wholesale.html">
+        <span class="dir-n">01</span>
+        <h3>Одежда оптом</h3>
+        <p>Пошив брендированной и базовой одежды партиями: худи, свитшоты, футболки, поло, бомберы, куртки. Нестандартные модели и индивидуальный дизайн. Готовые худи и свитшоты — на складе.</p>
+        <span class="dir-go">Подробнее об опте</span>
+      </a>
+      <a class="dir" href="products.html">
+        <span class="dir-n">02</span>
+        <h3>Корпоративный мерч</h3>
+        <p>Капсульные коллекции, welcome-наборы, сумки, шоперы и сувенирная продукция под ключ — от идеи до готового тиража.</p>
+        <span class="dir-go">Смотреть продукцию</span>
+      </a>
+      <a class="dir" href="products.html">
+        <span class="dir-n">03</span>
+        <h3>Нанесение</h3>
+        <p>DTF-печать, сублимация, шелкография, эмбоссирование, вышивка. Подбираем технологию под задачу, материал и тираж.</p>
+        <span class="dir-go">Способы нанесения</span>
+      </a>
+    </section>
+
+    <section class="s s-prod" id="production">
+      <div>
+        <p class="eyebrow">Производство</p>
+        <h2 class="h-lg">Все этапы заказа — в одном месте</h2>
+        <p class="p-lg">Швейный и печатный цех, контроль качества от ткани до финального нанесения. Работаем и с небольшими, и с крупными тиражами.</p>
+        <a class="btn" style="display:inline-block;margin-top:34px;background:#fff;color:#0d0d0d" href="production.html">О производстве</a>
+      </div>
+      <ol class="steps">
+        <li><b>Идея и модель</b><span>разработка, лекала, образец</span></li>
+        <li><b>Материалы</b><span>подбор ткани и фурнитуры</span></li>
+        <li><b>Пошив</b><span>собственный швейный цех</span></li>
+        <li><b>Нанесение</b><span>печать и вышивка у себя</span></li>
+        <li><b>Контроль качества</b><span>на каждом этапе</span></li>
+        <li><b>Тираж</b><span>упаковка и доставка</span></li>
+      </ol>
+    </section>
+
+    <section class="s s-cta" id="contacts">
+      <h2 class="h-xl">Вы знаете, что нужно бренду.<br><em>Мы это сошьём.</em></h2>
+      <div class="cta-row">
+        <a class="btn" href="https://wa.me/77771737475" target="_blank" rel="noopener">Написать в WhatsApp</a>
+        <a class="btn btn-line" href="tel:+77771737475">+7 (777) 173 74 75</a>
+      </div>
+      <footer class="foot">
+        <span>Алматы, мкр. Мамыр, ул. Степная, 6</span>
+        <span>Пн–Пт, 9:00–18:00</span>
+        <a href="mailto:ceo.manager@izumerch.kz">ceo.manager@izumerch.kz</a>
+        <a href="https://www.instagram.com/izum_production" target="_blank" rel="noopener">@izum_production</a>
+      </footer>
+    </section>
+  </main>
+
+  <script src="data.js"></script>
+  <script src="hero.js"></script>
+</body>
+</html>
