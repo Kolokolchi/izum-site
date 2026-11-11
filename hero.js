@@ -230,7 +230,6 @@ void main() {
     sh.className = "shadow";
     stage.append(sh, el);
     const node = { el, sh, h: 0, rot: 0, rotT: 0, rotGoal: 0, rotFrom: 0, rotT0: 0, rotDur: 1, w: 0, hgt: 0, heroK: 1, turn: null };
-    if (it.turn) turnQueue.push({ node, turn: it.turn, phase: 1 });
     return node;
   });
 
@@ -242,41 +241,54 @@ void main() {
   // Кадры держим с предумноженной прозрачностью: иначе при уменьшении и сглаживании цвет прозрачных
   // пикселей затекает в контур вещи (тёмная рваная кайма, серый ореол). Шейдер делит цвет на альфу обратно.
   const bitmap = (blob, opts) => createImageBitmap(blob, { premultiplyAlpha: "premultiply", ...opts });
+  // Холст вещи поднимается сразу — из картинки, которая уже стоит на странице. Перекраска и нанесение
+  // работают с первой секунды и не ждут кадров оборота: по плохой сети те могут идти минутами.
+  function startTurn(node) {
+    const turn = ITEMS[nodes.indexOf(node)].turn, img = node.el.querySelector("img");
+    if (!turn) return;
+    const lw = Math.max(1, Math.floor(turn.fw / 2)), lh = Math.max(1, Math.floor(turn.fh / 2));
+    img.decode().then(() => bitmap(img, { resizeWidth: Math.max(1, Math.round(lw / 2)), resizeQuality: "high" })).then((first) => {
+      const canvas = document.createElement("canvas");
+      canvas.className = "turn";
+      canvas.width = lw; canvas.height = lh;
+      const G = tryGL(canvas);
+      const t = { ...turn, canvas, G, ctx: G ? null : canvas.getContext("2d"), glAt: performance.now(), glTries: 0, lw, lh, blobs: new Array(turn.n), sm: new Array(turn.n), md: new Array(turn.n), hi: new Array(turn.n),
+                  complete: false, full: false, busy: false, drop: false, hiState: 0, dirty: true, shown: null, pk: "", printKey: "", tileKey: "", tile: [1, 1], rot: [1, 0],
+                  zg: {} };
+      for (const z of ZONES[nodes.indexOf(node)]) t.zg[z.id] = { H: homography(z.quad) };
+      t.sm[0] = first;
+      watchGL(t, canvas);
+      node.turn = t;
+      node.el.append(canvas);
+      node.el.classList.add("turning");
+      layout();
+      turnQueue.push({ node, turn, phase: 1 });
+      nextTurn();
+    }, () => {                                   // картинка не дошла — запрашиваем заново
+      setTimeout(() => {
+        for (const im of node.el.querySelectorAll("img")) im.src = im.src.split("?")[0] + "?r=" + Date.now();
+        startTurn(node);
+      }, 3000);
+    });
+  }
   function nextTurn() {
     if (turnBusy || !turnQueue.length) return;
     turnQueue.sort((p, q) => p.phase - q.phase || dist(p.node) - dist(q.node));
     const job = turnQueue.shift(), { node, turn } = job;
     turnBusy = true;
     let work;
-    if (job.phase === 1) {
-      const ks = restFrames(turn.n);
-      work = fetchAll(ks.map((k) => frameUrl(turn, "lo", k))).then(async (got) => {
-        const canvas = document.createElement("canvas");
-        canvas.className = "turn";
-        const lw = Math.max(1, Math.floor(turn.fw / 2)), lh = Math.max(1, Math.floor(turn.fh / 2));
-        canvas.width = lw; canvas.height = lh;
-        const G = tryGL(canvas);
-        const t = { ...turn, canvas, G, ctx: G ? null : canvas.getContext("2d"), glAt: performance.now(), glTries: 0, lw, lh, blobs: new Array(turn.n), sm: new Array(turn.n), md: new Array(turn.n), hi: new Array(turn.n),
-                    complete: false, full: false, busy: false, drop: false, hiState: 0, dirty: true, shown: null, pk: "", printKey: "", tileKey: "", tile: [1, 1], rot: [1, 0],
-                    zg: {} };
-        for (const z of ZONES[nodes.indexOf(node)]) t.zg[z.id] = { H: homography(z.quad) };
-        ks.forEach((k, j) => { t.blobs[k] = got[j]; });
-        const half = Math.max(1, Math.round(lw / 2));
-        await Promise.all(ks.map(async (k) => { t.sm[k] = await bitmap(t.blobs[k], { resizeWidth: half, resizeQuality: "high" }); }));
-        watchGL(t, canvas);
-        node.turn = t;
-        node.el.append(canvas);
-        node.el.classList.add("turning");
-        layout();
-        turnQueue.push({ node, turn, phase: 2 });
-      });
-    } else {
-      const t = node.turn, ks = [];
+    const t = node.turn, ks = [];
+    if (job.phase === 1) {                       // кадры около исходной позы — в четверть размера, показываем по мере прихода
+      for (const k of restFrames(t.n)) if (!t.blobs[k]) ks.push(k);
+      const half = Math.max(1, Math.round(t.lw / 2));
+      work = fetchAll(ks.map((k) => frameUrl(turn, "lo", k)), (j, blob) => {
+        const k = ks[j];
+        t.blobs[k] = blob;
+        bitmap(blob, { resizeWidth: half, resizeQuality: "high" }).then((bm) => { if (t.sm[k]) t.sm[k].close(); t.sm[k] = bm; t.dirty = true; }, () => {});
+      }).then(() => { turnQueue.push({ node, turn, phase: 2 }); });
+    } else {                                     // остальной оборот
       for (let k = 0; k < t.n; k++) if (!t.blobs[k]) ks.push(k);
-      work = fetchAll(ks.map((k) => frameUrl(turn, "lo", k))).then((got) => {
-        ks.forEach((k, j) => { t.blobs[k] = got[j]; });
-        t.complete = true;
-      });
+      work = fetchAll(ks.map((k) => frameUrl(turn, "lo", k)), (j, blob) => { t.blobs[ks[j]] = blob; }).then(() => { t.complete = true; });
     }
     // сеть срывается — пробуем снова, пока не получится (с паузой, чтобы не молотить впустую)
     work.catch(() => { job.tries = (job.tries || 0) + 1; setTimeout(() => { turnQueue.push(job); nextTurn(); }, Math.min(8000, 1200 * job.tries)); })
@@ -284,18 +296,19 @@ void main() {
   }
 
   // Не больше 8 запросов сразу и до 4 попыток на файл — по сети отдельные запросы срываются.
-  async function fetchAll(urls) {
+  // each(j, blob) вызывается сразу, как пришёл файл: при срыве остальных уже полученное не пропадает.
+  async function fetchAll(urls, each) {
     const out = new Array(urls.length);
     let next = 0;
     const one = async (u) => {
       for (let attempt = 0; ; attempt++) {
-        const ac = new AbortController(), timer = setTimeout(() => ac.abort(), 20000);   // зависший запрос не должен держать очередь
+        const ac = new AbortController(), timer = setTimeout(() => ac.abort(), 12000);   // зависший запрос не должен держать очередь
         try { const r = await fetch(u, { signal: ac.signal }); if (r.ok) return await r.blob(); throw new Error(r.status); }
         catch (err) { if (attempt >= 3) throw err; await new Promise((res) => setTimeout(res, 400 * (attempt + 1))); }
         finally { clearTimeout(timer); }
       }
     };
-    const worker = async () => { while (next < urls.length) { const k = next++; out[k] = await one(urls[k]); } };
+    const worker = async () => { while (next < urls.length) { const k = next++; out[k] = await one(urls[k]); if (each) each(k, out[k]); } };
     await Promise.all(Array.from({ length: 8 }, worker));
     return out;
   }
@@ -1054,7 +1067,7 @@ void main() {
   setColor(saved || COLORS[0].id);
   logoChanged();
   layout();
-  nextTurn();
+  nodes.forEach(startTurn);
   requestAnimationFrame(frame);
 
   // Для проверки из консоли. grid() кладёт в зону печати разметочную сетку — по ней подгоняются углы зоны в data.js.
