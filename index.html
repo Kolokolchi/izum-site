@@ -8,8 +8,8 @@
   <meta name="robots" content="noindex">
   <link rel="icon" href="img/izum-logo.png">
   <link rel="preload" href="fonts/GothamPro-BlackItalic.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="hero.css?v=1111e">
-  <link rel="stylesheet" href="site.css?v=1111e">
+  <link rel="stylesheet" href="hero.css?v=1111f">
+  <link rel="stylesheet" href="site.css?v=1111f">
 </head>
 <body>
   <!-- ================= ПЕРВЫЙ ЭКРАН: слайдер-примерочная ================= -->
@@ -105,7 +105,18 @@
                   <button data-v="sleeve">Рукав</button>
                 </div>
               </div>
-              <div class="tool-row pat-row">
+              <div class="tool-row">
+                <span class="tool-label">Узор</span>
+                <div class="seg seg-pat" id="segOrn" role="group" aria-label="Готовый узор">
+                  <button data-v="none" class="on">Нет</button>
+                  <button data-v="stripe">Полоска</button>
+                  <button data-v="dots">Горох</button>
+                  <button data-v="check">Клетка</button>
+                  <button data-v="zigzag">Зигзаг</button>
+                  <button data-v="line">Линия Izum</button>
+                </div>
+              </div>
+              <div class="tool-row part-row">
                 <span class="tool-label">Где печатать</span>
                 <div class="seg" id="segPart" role="group" aria-label="Где печатать паттерн">
                   <button data-v="1" class="on">Снаружи</button>
@@ -237,7 +248,7 @@
     </section>
   </main>
 
-  <script src="data.js?v=1111e"></script>
-  <script src="hero.js?v=1111e"></script>
+  <script src="data.js?v=1111f"></script>
+  <script src="hero.js?v=1111f"></script>
 </body>
 </html>

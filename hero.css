@@ -289,6 +289,8 @@ textarea.text-logo { width: 100%; resize: none; line-height: 1.25; padding: 8px 
 /* ---------- раскладки паттерна: видны только в режиме «Паттерн» ---------- */
 .pat-row { display: none; }
 .app[data-pattern="1"] .pat-row { display: flex; }
+.part-row { display: none; }
+.app[data-pattern="1"] .part-row, .app[data-orn="1"] .part-row { display: flex; }
 .seg-pat { flex-wrap: wrap; border-radius: 18px; }
 .seg-pat button { padding: 7px 11px 6px; letter-spacing: .06em; }
 

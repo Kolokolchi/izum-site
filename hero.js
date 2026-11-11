@@ -43,6 +43,7 @@
     ink: "#e5007d",
     text: "", font: "gotham",
     pat: "brick",           // раскладка паттерна, см. PATTERNS
+    orn: "none",            // готовый узор под нанесением, см. ORNS
     part: 1,                // где печатать паттерн: 1 — снаружи, 2 — внутри, 3 — везде
     scale: 1,               // 1 — логотип занимает 80% зоны печати, 1.25 — всю зону
     ver: 0,                 // растёт при любом изменении — текстуры нанесения пересобираются
@@ -74,9 +75,12 @@ in vec2 p; out vec2 v;
 void main() { v = vec2(p.x * .5 + .5, .5 - p.y * .5); gl_Position = vec4(p, 0., 1.); }`;
   const FS = `#version 300 es
 precision highp float;
-uniform sampler2D uF, uP, uT;      // кадр вещи, зона печати с логотипом, плитка паттерна
+uniform sampler2D uF, uP, uT, uO;  // кадр вещи, зона печати с логотипом, плитка паттерна, плитка готового узора
+uniform float uOrn;                // 1 — готовый узор включён
+uniform vec2 uTileO;               // размер плитки узора в пикселях кадра
 uniform vec3 uCol;                 // выбранный цвет
 uniform float uRec;                // 1 — перекрашивать
+uniform float uCut;                // 1 — тёмная сцена: слабый ореол вокруг вещи срезается
 uniform mat3 uH;                   // кадр → зона печати
 uniform float uArc, uK, uSurf, uSurfB, uAxis, uShift, uSquash, uDisp;
 uniform vec4 uEb, uEx;             // эллипсы внутренней части: центр и полуоси в долях кадра
@@ -93,6 +97,9 @@ void main() {
   // светлый полупрозрачный ореол (отсвет вещи на белом фоне съёмки) на цветной заливке читается грязью — убираем;
   // тёмные полупрозрачные пиксели — это тень под вещью, они остаются
   s.a *= mix(1., smoothstep(.45, .92, s.a), smoothstep(.5, .75, dot(s.rgb, vec3(.3, .59, .11))));
+  // Вокруг вещи в кадрах остаётся блочный след сжатия ролика (прозрачность 10–30 %). На светлом фоне это мягкая тень,
+  // на тёмной сцене — светящиеся квадраты, поэтому там всё слабее полупрозрачного края убираем.
+  s.a *= mix(1., smoothstep(.24, .62, s.a), uCut);
   if (s.a < .004) { o = vec4(0.); return; }
   vec3 c = s.rgb * 255.;
   // Вещи сняты в чёрном с жёлтым. Пиксель раскладывается на «белую» часть (канал B) и «жёлтую»
@@ -102,7 +109,7 @@ void main() {
   vec3 rec = vec3(c.b) + (max(c.r, c.g) - c.b) * uCol;
   vec3 base = mix(c, rec, m * uRec) / 255.;
 
-  if (uMode > 0 && uK > 0.) {
+  if ((uMode > 0 && uK > 0.) || uOrn > 0.) {
     // складки и фактура ткани: локальная яркость относительно размытой
     float l0 = L(textureLod(uF, v, 1.).rgb), l5 = L(textureLod(uF, v, 5.).rgb);
     float lr = L(s.rgb), l2 = L(textureLod(uF, v, 2.5).rgb);
@@ -121,6 +128,12 @@ void main() {
     vec2 e = 3. / uSize;
     vec2 g = vec2(L(textureLod(uF, v + vec2(e.x, 0.), 2.).rgb) - L(textureLod(uF, v - vec2(e.x, 0.), 2.).rgb),
                   L(textureLod(uF, v + vec2(0., e.y), 2.).rgb) - L(textureLod(uF, v - vec2(0., e.y), 2.).rgb));
+    if (uOrn > 0.) {                 // готовый узор — нижний слой, логотип или паттерн ложатся поверх
+      vec4 po = texture(uO, v * uSize / uTileO + g * uDisp);
+      float lo = po.a * clamp(uPart.x * mA + uPart.y * mB, 0., 1.);
+      base = mix(base, clamp(po.rgb / max(po.a, .001) * pow(f, .9), 0., 1.), lo);
+    }
+    if (uMode > 0 && uK > 0.) {
     vec4 pr; float la;
     if (uMode == 1) {
       vec2 q = v; q.x = uAxis + (q.x - uAxis - uShift) / uSquash;   // вещь повернулась — зона уезжает вместе с ней
@@ -136,6 +149,7 @@ void main() {
     }
     la *= surf * uK;
     base = mix(base, clamp(pr.rgb / max(pr.a, .001) * pow(f, .9), 0., 1.), la);
+    }
   }
   o = vec4(base * s.a, s.a);
 }`;
@@ -154,7 +168,7 @@ void main() {
     const loc = gl.getAttribLocation(prog, "p");
     gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
     const u = {};
-    for (const name of ["uF", "uP", "uT", "uCol", "uRec", "uH", "uArc", "uK", "uSurf", "uSurfB", "uEb", "uEx", "uPart", "uAxis", "uShift", "uSquash", "uDisp", "uMode", "uSize", "uTile", "uRot"]) u[name] = gl.getUniformLocation(prog, name);
+    for (const name of ["uF", "uP", "uT", "uO", "uOrn", "uTileO", "uCol", "uRec", "uCut", "uH", "uArc", "uK", "uSurf", "uSurfB", "uEb", "uEx", "uPart", "uAxis", "uShift", "uSquash", "uDisp", "uMode", "uSize", "uTile", "uRot"]) u[name] = gl.getUniformLocation(prog, name);
     const tex = (unit, wrapMode, mips) => {
       const t = gl.createTexture();
       gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t);
@@ -164,9 +178,9 @@ void main() {
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(4));
       return t;
     };
-    const texF = tex(0, gl.CLAMP_TO_EDGE, true), texP = tex(1, gl.CLAMP_TO_EDGE, true), texT = tex(2, gl.REPEAT, true);
-    gl.uniform1i(u.uF, 0); gl.uniform1i(u.uP, 1); gl.uniform1i(u.uT, 2);
-    return { gl, u, texF, texP, texT };
+    const texF = tex(0, gl.CLAMP_TO_EDGE, true), texP = tex(1, gl.CLAMP_TO_EDGE, true), texT = tex(2, gl.REPEAT, true), texO = tex(3, gl.REPEAT, true);
+    gl.uniform1i(u.uF, 0); gl.uniform1i(u.uP, 1); gl.uniform1i(u.uT, 2); gl.uniform1i(u.uO, 3);
+    return { gl, u, texF, texP, texT, texO };
   }
   function tryGL(canvas) {
     try { const G = makeGL(canvas); if (G) return G; glErrors.push("нет контекста"); }
@@ -184,7 +198,7 @@ void main() {
     c.className = old.className; c.width = old.width; c.height = old.height; c.style.cssText = old.style.cssText;
     t.glAt = performance.now(); t.glTries++;
     t.G = tryGL(c); t.ctx = t.G ? null : c.getContext("2d");
-    t.canvas = c; t.texImg = null; t.printKey = ""; t.tileKey = ""; t.dirty = true;
+    t.canvas = c; t.texImg = null; t.printKey = ""; t.tileKey = ""; t.ornKey = ""; t.dirty = true;
     old.replaceWith(c);
     watchGL(t, c);
   }
@@ -464,6 +478,43 @@ void main() {
     }
   }
 
+  // Готовые узоры: бесшовная плитка рисуется краской ink. k — ширина плитки в долях ширины кадра.
+  const ORNS = {
+    stripe: { name: "полоска", k: 0.05, w: 64, h: 64, draw(g, ink) { g.fillStyle = ink; g.globalAlpha = 0.6; g.fillRect(0, 0, 26, 64); } },
+    dots: { name: "горох", k: 0.1, w: 128, h: 128, draw(g, ink) {
+      g.fillStyle = ink; g.globalAlpha = 0.65;
+      for (const [x, y] of [[32, 32], [96, 96]]) { g.beginPath(); g.arc(x, y, 17, 0, 7); g.fill(); }
+    } },
+    check: { name: "клетка", k: 0.11, w: 96, h: 96, draw(g, ink) { g.fillStyle = ink; g.globalAlpha = 0.36; g.fillRect(0, 0, 48, 96); g.fillRect(0, 0, 96, 48); } },
+    zigzag: { name: "зигзаг", k: 0.13, w: 128, h: 72, draw(g, ink) {
+      g.strokeStyle = ink; g.globalAlpha = 0.62; g.lineWidth = 15; g.lineJoin = "miter";
+      for (const dy of [-72, 0, 72]) { g.beginPath(); g.moveTo(-64, 96 + dy); g.lineTo(0, 54 + dy); g.lineTo(64, 12 + dy); g.lineTo(128, 54 + dy); g.lineTo(192, 96 + dy); g.stroke(); }
+    } },
+    // фирменная линия Izum: жёлтый, голубой, пурпурный, чёрный — диагональными лентами
+    line: { name: "линия Izum", k: 0.26, w: 240, h: 240, draw(g) {
+      g.lineWidth = 13; g.lineCap = "butt";
+      ["#ffed00", "#009fe3", "#e5007d", "#0d0d0d"].forEach((col, j) => {
+        g.strokeStyle = col;
+        for (const c of [-240, 0, 240, 480]) { const q = c + 90 + j * 18.4; g.beginPath(); g.moveTo(q + 20, -20); g.lineTo(q - 260, 260); g.stroke(); }
+      });
+    } },
+  };
+  const ornCv = document.createElement("canvas"), ornX = ornCv.getContext("2d");
+  function syncOrn(i, t) {
+    const O = ORNS[C.orn], pr = ITEMS[i].print || {};
+    const ink = pr.surf === "dark" || S.color.lum <= 0.55 ? "#ffffff" : "#141414";   // на чёрном и на тёмных цветах — белая краска
+    const k = C.src ? 1 : C.scale;                // пока своего рисунка нет, ползунок «Размер» управляет узором
+    const key = C.orn + "|" + ink + "|" + k;
+    if (t.ornKey === key) return;
+    t.ornKey = key;
+    ornCv.width = O.w * 2; ornCv.height = O.h * 2;
+    ornX.setTransform(2, 0, 0, 2, 0, 0); ornX.clearRect(0, 0, O.w, O.h); ornX.globalAlpha = 1;
+    ornX.save(); O.draw(ornX, ink); ornX.restore();
+    upload(t.G, 3, t.G.texO, ornCv, true);
+    const tw = t.fw * O.k * k;
+    t.otile = [tw, (tw * O.h) / O.w];
+  }
+
   // Один кадр вещи. z — место нанесения, которое сейчас смотрит в камеру; theta — на сколько градусов
   // вещь от него отвёрнута (со знаком).
   function paint(i, t, img, lk, theta, z) {
@@ -478,9 +529,14 @@ void main() {
     if (t.texImg !== img) { t.texImg = img; upload(t.G, 0, t.G.texF, img, false); }
     const on = lk > 0 && C.src;
     if (on) syncPrint(i, t, pr);
+    const orn = !!ORNS[C.orn];
+    if (orn) syncOrn(i, t);
+    gl.uniform1f(u.uOrn, orn ? 1 : 0);
+    gl.uniform2f(u.uTileO, orn ? t.otile[0] : 1, orn ? t.otile[1] : 1);
     gl.viewport(0, 0, t.canvas.width, t.canvas.height);
     gl.uniform3fv(u.uCol, S.color.t);
     gl.uniform1f(u.uRec, S.color.id === "yellow" ? 0 : 1);
+    gl.uniform1f(u.uCut, t.cut || 0);
     gl.uniform1i(u.uMode, !on ? 0 : C.mode === "pattern" ? 2 : 1);
     gl.uniform1f(u.uK, lk * 0.97);
     gl.uniform1f(u.uSurf, pr.surf === "dark" ? 1 : 0);
@@ -508,6 +564,7 @@ void main() {
     C.ver++;
     app.dataset.logo = C.src ? "1" : "0";
     app.dataset.pattern = C.mode === "pattern" ? "1" : "0";
+    app.dataset.orn = ORNS[C.orn] ? "1" : "0";
     showZones(S.active);
     $("clearBtn").textContent = C.mode === "pattern" ? "Убрать паттерн" : "Убрать логотип";
     $("toolHint").textContent = !C.src ? (C.mode === "pattern" ? "Паттерну нужен рисунок: загрузите файл или напишите текст — он разложится по вещи."
@@ -721,7 +778,8 @@ void main() {
           if (zone) lk = Math.round(clamp(((zone.r ? 36 : 19) - Math.abs(theta)) / 10, 0, 1) * 20) / 20;
         }
         if (Math.abs(lack) > 75 && C.mode !== "pattern") lk = 0;   // довёрнутый «спиной» кадр — без зеркального логотипа
-        const pk = S.color.id + "|" + (lk ? C.ver + ":" + lk + ":" + kf + ":" + (zone ? zone.id : "") : "");
+        tt.cut = Math.round(smooth(clamp(e * 1.6, 0, 1)) * 12) / 12;   // вещь летит на тёмную сцену — ореол уходит
+        const pk = S.color.id + "|" + tt.cut + "|" + (ORNS[C.orn] ? C.orn + C.ver : "") + "|" + (lk ? C.ver + ":" + lk + ":" + kf + ":" + (zone ? zone.id : "") : "");
         if (img && (tt.dirty || img !== tt.shown || pk !== tt.pk)) {
           tt.shown = img; tt.dirty = false; tt.pk = pk;
           paint(i, tt, img, lk, theta, zone);
@@ -870,7 +928,8 @@ void main() {
     $("leadSave").href = url;
     cv.toBlob((b) => { shotBlob = b; });
     const where = ZONES[S.active].filter((z) => C.places[z.id]).map((z) => PLACE_NAMES[z.id].toLowerCase()).join(", ");
-    const how = !C.src ? "без нанесения" : C.mode === "pattern" ? "паттерн" : "логотип" + (where ? ": " + where : "");
+    const ornName = ORNS[C.orn] ? "узор «" + ORNS[C.orn].name + "»" : "";
+    const how = (!C.src ? (ornName || "без нанесения") : (C.mode === "pattern" ? "паттерн" : "логотип" + (where ? ": " + where : "")) + (ornName ? ", " + ornName : ""));
     $("leadSum").textContent = `${it.name} · ${S.color.name.toLowerCase()} · ${how}`;
     order.hidden = false;
     order.querySelector("input").focus();
@@ -886,7 +945,7 @@ void main() {
       "Здравствуйте! Хочу получить расчёт.",
       `Изделие: ${it.name}`,
       `Цвет: ${S.color.name.toLowerCase()}`,
-      `Нанесение: ${!C.src ? "нет" : C.mode === "pattern" ? "паттерн" : "логотип (" + ZONES[S.active].filter((z) => C.places[z.id]).map((z) => PLACE_NAMES[z.id].toLowerCase()).join(", ") + ")"}`,
+      `Нанесение: ${!C.src ? "нет" : C.mode === "pattern" ? "паттерн" : "логотип (" + ZONES[S.active].filter((z) => C.places[z.id]).map((z) => PLACE_NAMES[z.id].toLowerCase()).join(", ") + ")"}${ORNS[C.orn] ? "; узор: " + ORNS[C.orn].name : ""}`,
       f.get("qty") ? `Тираж: ${f.get("qty")}` : "",
       f.get("company") ? `Компания: ${f.get("company")}` : "",
       `Имя: ${f.get("name")}`,
@@ -1045,9 +1104,10 @@ void main() {
     // выбрали «Логотип» или «Паттерн», а нанесение убрано — возвращаем последнее, иначе режим включается впустую
     if (key === "mode" && !C.src && C.last) { C.src = C.last.src; C.mono = C.last.mono; C.text = C.last.text; $("textLogo").value = C.text; }
     logoChanged();
-    if (key === "mode" && !C.src) $("textLogo").focus();
+    // рисунка ещё не было — кладём образец, чтобы раскладки было видно сразу; его заменит свой файл или текст
+    if (key === "mode" && !C.src) { $("textLogo").value = "ВАШ ЛОГО"; useText("ВАШ ЛОГО"); }
   });
-  seg("segMode", "mode"); seg("segTint", "tint"); seg("segPat", "pat");
+  seg("segMode", "mode"); seg("segTint", "tint"); seg("segPat", "pat"); seg("segOrn", "orn");
   $("segZone").addEventListener("click", (ev) => { const b = ev.target.closest("button"); if (b) setZone(b.dataset.v); });
   $("segPart").addEventListener("click", (ev) => {              // маска паттерна: снаружи / внутри / везде
     const b = ev.target.closest("button"); if (!b) return;
