@@ -25,10 +25,12 @@
       const r = d[p], gg = d[p + 1], b = d[p + 2], c = (r + gg) / 2 - b;
       if (c <= 12) continue;
       const m = c >= 40 ? 1 : (c - 12) / 28, a = Math.max(r, gg) - b;
-      const k = al >= 180 ? 1 : al <= 60 ? 0 : (al - 60) / 120, gr = 0.3 * r + 0.59 * gg + 0.11 * b;
-      d[p] = r + (gr + (b + a * tr - gr) * k - r) * m;
-      d[p + 1] = gg + (gr + (b + a * tg - gr) * k - gg) * m;
-      d[p + 2] = b + (gr + (b + a * tb - gr) * k - b) * m;
+      d[p] = r + (b + a * tr - r) * m;
+      d[p + 1] = gg + (b + a * tg - gg) * m;
+      d[p + 2] = b + a * tb * m;
+      // светлый полупрозрачный ореол на цветном фоне читается грязью — гасим (как в шейдере hero.js)
+      const lum = (0.3 * r + 0.59 * gg + 0.11 * b) / 255, av = al / 255;
+      if (av < 0.92 && lum > 0.5) { const q = Math.min(1, Math.max(0, (av - 0.45) / 0.47)), w = Math.min(1, (lum - 0.5) / 0.25); d[p + 3] = al * (1 - w + w * q * q * (3 - 2 * q)); }
     }
     g.putImageData(im, 0, 0);
     t.img.src = cv.toDataURL("image/png");

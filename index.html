@@ -19,6 +19,7 @@
     <div class="ghost" aria-hidden="true"><span>IZUM</span></div>
     <div class="floor" aria-hidden="true"></div>
 
+    <div class="izum-line izum-line-top" aria-hidden="true"></div>
     <header class="top">
       <a class="brand" href="#top">
         <img src="img/izum-logo.png" alt="Izum Design &amp; Production">
@@ -45,7 +46,7 @@
       <div class="caption">
         <div class="caption-set" id="capSet"></div>
         <h1 class="caption-name" id="capName"></h1>
-        <div class="rail"><i id="railDot"></i></div>
+        <div class="rail izum-line"><i id="railDot"></i></div>
         <button class="open-btn" id="openBtn">Примерить свой логотип</button>
         <div class="swatches" data-swatches aria-label="Цвет"></div>
       </div>
@@ -74,7 +75,15 @@
                   <input type="file" id="file" accept="image/png,image/jpeg,image/webp,image/svg+xml">
                   <b>Загрузить файл</b><small>PNG, SVG, JPG — или перетащите сюда</small>
                 </label>
-                <input class="text-logo" id="textLogo" type="text" maxlength="18" placeholder="или напишите название" autocomplete="off">
+                <div class="text-box">
+                  <textarea class="text-logo" id="textLogo" rows="2" maxlength="44" placeholder="или напишите свой текст" autocomplete="off"></textarea>
+                  <div class="seg seg-font" id="segFont" role="group" aria-label="Шрифт">
+                    <button data-v="gotham" class="on" style="font: italic 900 13px 'Gotham Pro', Arial, sans-serif">АА</button>
+                    <button data-v="bold" style="font: 700 13px 'Gotham Pro', Arial, sans-serif">Аа</button>
+                    <button data-v="serif" style="font: italic 700 14px Georgia, serif">Аа</button>
+                    <button data-v="impact" style="font: 400 14px Impact, 'Arial Narrow', sans-serif">АА</button>
+                  </div>
+                </div>
               </div>
               <div class="tool-row">
                 <div class="seg" id="segMode" role="group" aria-label="Способ">
@@ -82,12 +91,13 @@
                   <button data-v="pattern">Паттерн</button>
                 </div>
                 <div class="seg" id="segTint" role="group" aria-label="Цвет нанесения">
-                  <button data-v="orig" class="on">Как в файле</button>
+                  <button data-v="orig" class="on">Авто</button>
                   <button data-v="white">Белый</button>
                   <button data-v="black">Чёрный</button>
                 </div>
+                <label class="ink" title="Свой цвет нанесения"><input type="color" id="ink" value="#e5007d" aria-label="Свой цвет нанесения"></label>
               </div>
-              <label class="range"><span>Размер</span><input type="range" id="size" min="35" max="220" value="100"></label>
+              <label class="range"><span>Размер</span><input type="range" id="size" min="30" max="125" value="100"></label>
               <div class="tool-row">
                 <span class="tool-label">Цвет вещи</span>
                 <div class="swatches" data-swatches aria-label="Цвет"></div>
@@ -191,6 +201,7 @@
         <a class="btn" href="https://wa.me/77771737475" target="_blank" rel="noopener">Написать в WhatsApp</a>
         <a class="btn btn-line" href="tel:+77771737475">+7 (777) 173 74 75</a>
       </div>
+      <div class="izum-line izum-line-foot" aria-hidden="true"></div>
       <footer class="foot">
         <span>Алматы, мкр. Мамыр, ул. Степная, 6</span>
         <span>Пн–Пт, 9:00–18:00</span>
