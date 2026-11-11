@@ -509,7 +509,9 @@ void main() {
     app.dataset.logo = C.src ? "1" : "0";
     app.dataset.pattern = C.mode === "pattern" ? "1" : "0";
     showZones(S.active);
-    $("toolHint").textContent = !C.src ? "Загрузите файл или напишите название — логотип сразу ляжет в зону печати."
+    $("clearBtn").textContent = C.mode === "pattern" ? "Убрать паттерн" : "Убрать логотип";
+    $("toolHint").textContent = !C.src ? (C.mode === "pattern" ? "Паттерну нужен рисунок: загрузите файл или напишите текст — он разложится по вещи."
+                                                               : "Загрузите файл или напишите название — логотип сразу ляжет в зону печати.")
       : C.mode === "pattern" ? "Паттерн покрывает вещь целиком. Размер — ползунком или колесом мыши над вещью."
       : "Двигайте логотип прямо на вещи — за зону печати он не выйдет. Размер — ползунком или колесом мыши.";
   }
@@ -1040,7 +1042,10 @@ void main() {
     const b = ev.target.closest("button"); if (!b) return;
     C[key] = b.dataset.v;
     $(id).querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b));
+    // выбрали «Логотип» или «Паттерн», а нанесение убрано — возвращаем последнее, иначе режим включается впустую
+    if (key === "mode" && !C.src && C.last) { C.src = C.last.src; C.mono = C.last.mono; C.text = C.last.text; $("textLogo").value = C.text; }
     logoChanged();
+    if (key === "mode" && !C.src) $("textLogo").focus();
   });
   seg("segMode", "mode"); seg("segTint", "tint"); seg("segPat", "pat");
   $("segZone").addEventListener("click", (ev) => { const b = ev.target.closest("button"); if (b) setZone(b.dataset.v); });
@@ -1063,7 +1068,7 @@ void main() {
     logoChanged();
   });
   $("segTint").addEventListener("click", () => $("ink").parentElement.classList.remove("on"));
-  $("clearBtn").addEventListener("click", () => { C.src = null; C.text = ""; $("textLogo").value = ""; C.off = ITEMS.map(() => ({})); C.places = { front: true, back: false, sleeve: false }; setZone("front"); C.places.front = true; logoChanged(); });
+  $("clearBtn").addEventListener("click", () => { if (C.src) C.last = { src: C.src, mono: C.mono, text: C.text }; C.src = null; C.text = ""; $("textLogo").value = ""; C.off = ITEMS.map(() => ({})); C.places = { front: true, back: false, sleeve: false }; setZone("front"); C.places.front = true; logoChanged(); });
 
   // файл можно бросить прямо на первый экран
   let dropDepth = 0;
