@@ -288,3 +288,9 @@ textarea.text-logo { width: 100%; resize: none; line-height: 1.25; padding: 8px 
 .app[data-pattern="1"] .pat-row { display: flex; }
 .seg-pat { flex-wrap: wrap; border-radius: 18px; }
 .seg-pat button { padding: 7px 11px 6px; letter-spacing: .06em; }
+
+/* ---------- места нанесения: спереди, спина, рукав ---------- */
+.zone-row { display: none; }
+.app[data-zones="1"]:not([data-pattern="1"]) .zone-row { display: flex; }
+#segZone button[hidden] { display: none; }
+#segZone button.has::after { content: ""; display: inline-block; width: 6px; height: 6px; margin-left: 7px; border-radius: 50%; background: currentColor; vertical-align: 1px; }

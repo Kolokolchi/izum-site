@@ -28,7 +28,10 @@ for pid in names:
     if only_meta:
         m = meta_from_frames(pid)
     else:
-        out = subprocess.run([sys.executable, "-I", os.path.join(root, "tools", "make_turntable.py"), os.path.join(video, f"turn_{pid}4k.mp4"), pid],
+        block = src[src.index(f'id: "{pid}"'):]
+        block = block[:block.index("specs:")]
+        extra = ",".join(re.findall(r"k: (\d+)", block))   # кадры спины и рукава из places
+        out = subprocess.run([sys.executable, "-I", os.path.join(root, "tools", "make_turntable.py"), os.path.join(video, f"turn_{pid}4k.mp4"), pid, extra],
                              capture_output=True, text=True, encoding="utf-8")
         print(pid, out.stdout.strip() or out.stderr.strip()[-400:])
         m = json.loads(re.search(r"turn: (\{.*?\})", out.stdout).group(1))

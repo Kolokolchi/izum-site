@@ -1,10 +1,10 @@
 """Раскладывает ролик-«вертушку» (объект на белом фоне, полный оборот) на кадры с прозрачным фоном.
 
-    python -I tools/make_turntable.py <video.mp4> <id>
+    python -I tools/make_turntable.py <video.mp4> <id> [кадры через запятую: 36,62]
 
 Ролик может быть любого разрешения (720p, 1080p, 4K): кадр приводится к рабочей высоте WORK,
 вырезается, и пишутся два набора кадров:
-    img/turn/<id>/hi/NNN.webp — полный размер, только первые HI_KEEP кадров (вещь стоит у камеры)
+    img/turn/<id>/hi/NNN.webp — полный размер, только позы у камеры: лицо, спина, оба бока (см. is_hi)
     img/turn/<id>/lo/NNN.webp — половина, весь оборот (очередь и вращение)
 Печатает строку turn: {...} для data.js (размеры — в пикселях набора hi).
 """
@@ -15,6 +15,14 @@ from PIL import Image
 video, pid = sys.argv[1], sys.argv[2]
 WORK = 1440                      # рабочая высота кадра: вещь получается ~1100–1300 px в высоту
 HI_KEEP = 14                     # сколько первых кадров сохранять в полном размере (hero.js: HI_FRAMES)
+
+EXTRA = [int(v) for v in sys.argv[3].split(",") if v] if len(sys.argv) > 3 else []   # кадры спины, рукава и т. п.
+
+def is_hi(k, n):
+    """Кадры полного размера — позы, в которых вещь останавливается у камеры: лицо (первые кадры)
+    и кадры мест нанесения из data.js (спина, рукав) с соседями. То же правило — в hero.js, hiFrames()."""
+    return k < HI_KEEP or any(abs(k - e) <= 1 for e in EXTRA)
+
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 out = os.path.join(root, "img", "turn", pid)
 for tier in ("hi", "lo"):
@@ -113,7 +121,7 @@ for k, f in enumerate(frames()):
     hi = Image.fromarray(c, "RGBA")
     # Полный размер нужен только там, где вещь останавливается (первые градусы оборота):
     # в движении показываются кадры lo, иначе один оборот весил бы ~10 МБ и ~700 МБ в памяти.
-    if k < HI_KEEP: hi.save(os.path.join(out, "hi", f"{k:03d}.webp"), quality=88, method=5)
+    if is_hi(k, want): hi.save(os.path.join(out, "hi", f"{k:03d}.webp"), quality=88, method=5)
     hi.resize((max(1, hi.width // 2), max(1, hi.height // 2)), Image.LANCZOS).save(os.path.join(out, "lo", f"{k:03d}.webp"), quality=82, method=5)
     if k == 0:                   # рамка самой вещи (без тени) в нулевом кадре
         ys, xs = np.where(c[..., 3] > 200)
