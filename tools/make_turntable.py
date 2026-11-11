@@ -99,6 +99,16 @@ def cut_ps(im, mask):
     im = im.astype(np.float32)
     solid = (mask > 127).astype(np.uint8)
     k3 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+    # «Выделить предмет» иногда берёт вместе с вещью белый фон в просветах (между ушами шапки, под ремешком):
+    # крупные чисто белые области внутри маски — это фон, вещи сняты жёлто-чёрными.
+    global holes
+    sc = im.shape[0] / 720.0
+    white = ((im.min(axis=2) >= 243) & (solid > 0)).astype(np.uint8)
+    n, lab, st, _ = cv2.connectedComponentsWithStats(white, connectivity=8)
+    big = np.array([i > 0 and st[i, cv2.CC_STAT_AREA] > 120 * sc * sc for i in range(n)])
+    if big.any():
+        hole = cv2.dilate(big[lab].astype(np.uint8), cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5)))
+        solid[hole > 0] = 0; holes += 1
     alpha = cv2.GaussianBlur(cv2.erode(solid, k3).astype(np.float32), (0, 0), 0.85)
     core = cv2.erode(solid, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))).astype(np.float32)
     den = cv2.GaussianBlur(core, (0, 0), 3.0)
@@ -139,7 +149,7 @@ med = np.median(step)
 jumps = [int(k) for k in range(want) if step[k] > 3.2 * med and step[k] > 2.2 * max(step[(k - 2) % want], step[(k + 2) % want])]
 
 # Проход 2: вырезаем в рабочем размере и сразу пишем оба набора.
-meta = None; used_ps = 0
+meta = None; used_ps = 0; holes = 0
 for k, f in enumerate(frames()):
     if k >= want: break
     mp = os.path.join(MASKS, f"{k:03d}.png")
@@ -161,4 +171,4 @@ for k, f in enumerate(frames()):
 
 size = lambda t: sum(os.path.getsize(os.path.join(out, t, f)) for f in os.listdir(os.path.join(out, t))) // 1024
 sys.stdout.reconfigure(encoding="utf-8")
-print("turn:", json.dumps(meta), f"  // hi {size('hi')} КБ, lo {size('lo')} КБ, исходный кадр {W}x{H}, кадров {total}, масок Photoshop {used_ps}, скачки: {jumps}")
+print("turn:", json.dumps(meta), f"  // hi {size('hi')} КБ, lo {size('lo')} КБ, исходный кадр {W}x{H}, кадров {total}, масок Photoshop {used_ps}, кадров с просветами {holes}, скачки: {jumps}")
