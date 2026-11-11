@@ -168,6 +168,26 @@ void main() {
     gl.uniform1i(u.uF, 0); gl.uniform1i(u.uP, 1); gl.uniform1i(u.uT, 2);
     return { gl, u, texF, texP, texT };
   }
+  function tryGL(canvas) {
+    try { const G = makeGL(canvas); if (G) return G; glErrors.push("нет контекста"); }
+    catch (e) { glErrors.push(String(e && e.message)); }
+    return null;
+  }
+  // Контекст может пропасть (драйвер, нехватка видеопамяти, сон ноутбука) или не создаться с первого раза.
+  // Тогда вещь рисуется как есть, без перекраски и нанесения, — поэтому пробуем поднять WebGL заново.
+  function watchGL(t, canvas) {
+    canvas.addEventListener("webglcontextlost", (e) => { e.preventDefault(); t.dirty = true; });
+    if (!t.G && t.glTries < GL_TRIES) setTimeout(() => { t.dirty = true; }, GL_RETRY + 50);
+  }
+  function resetCanvas(t) {
+    const old = t.canvas, c = document.createElement("canvas");
+    c.className = old.className; c.width = old.width; c.height = old.height; c.style.cssText = old.style.cssText;
+    t.glAt = performance.now(); t.glTries++;
+    t.G = tryGL(c); t.ctx = t.G ? null : c.getContext("2d");
+    t.canvas = c; t.texImg = null; t.printKey = ""; t.tileKey = ""; t.dirty = true;
+    old.replaceWith(c);
+    watchGL(t, c);
+  }
   function upload(G, unit, texture, source, premultiply) {
     const gl = G.gl;
     gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -190,6 +210,8 @@ void main() {
   // ---------- сборка сцены ----------
   const turnQueue = [];   // вещи, чьи кадры оборота ещё не загружены
   let turnBusy = false;
+  const GL_TRIES = 12, GL_RETRY = 1500;
+  const glErrors = [];    // почему не поднялся WebGL (для диагностики: izumHero.glErrors)
   const nodes = ITEMS.map((it, i) => {
     const el = document.createElement("div");
     el.className = "item";
@@ -233,15 +255,15 @@ void main() {
         canvas.className = "turn";
         const lw = Math.max(1, Math.floor(turn.fw / 2)), lh = Math.max(1, Math.floor(turn.fh / 2));
         canvas.width = lw; canvas.height = lh;
-        let G = null;
-        try { G = makeGL(canvas); } catch (e) { G = null; }
-        const t = { ...turn, canvas, G, ctx: G ? null : canvas.getContext("2d"), lw, lh, blobs: new Array(turn.n), sm: new Array(turn.n), md: new Array(turn.n), hi: new Array(turn.n),
+        const G = tryGL(canvas);
+        const t = { ...turn, canvas, G, ctx: G ? null : canvas.getContext("2d"), glAt: performance.now(), glTries: 0, lw, lh, blobs: new Array(turn.n), sm: new Array(turn.n), md: new Array(turn.n), hi: new Array(turn.n),
                     complete: false, full: false, busy: false, drop: false, hiState: 0, dirty: true, shown: null, pk: "", printKey: "", tileKey: "", tile: [1, 1], rot: [1, 0],
                     zg: {} };
         for (const z of ZONES[nodes.indexOf(node)]) t.zg[z.id] = { H: homography(z.quad) };
         ks.forEach((k, j) => { t.blobs[k] = got[j]; });
         const half = Math.max(1, Math.round(lw / 2));
         await Promise.all(ks.map(async (k) => { t.sm[k] = await bitmap(t.blobs[k], { resizeWidth: half, resizeQuality: "high" }); }));
+        watchGL(t, canvas);
         node.turn = t;
         node.el.append(canvas);
         node.el.classList.add("turning");
@@ -256,7 +278,8 @@ void main() {
         t.complete = true;
       });
     }
-    work.catch(() => { if ((job.tries = (job.tries || 0) + 1) < 3) turnQueue.push(job); })
+    // сеть срывается — пробуем снова, пока не получится (с паузой, чтобы не молотить впустую)
+    work.catch(() => { job.tries = (job.tries || 0) + 1; setTimeout(() => { turnQueue.push(job); nextTurn(); }, Math.min(8000, 1200 * job.tries)); })
         .finally(() => { turnBusy = false; nextTurn(); });
   }
 
@@ -266,8 +289,10 @@ void main() {
     let next = 0;
     const one = async (u) => {
       for (let attempt = 0; ; attempt++) {
-        try { const r = await fetch(u); if (r.ok) return await r.blob(); throw new Error(r.status); }
+        const ac = new AbortController(), timer = setTimeout(() => ac.abort(), 20000);   // зависший запрос не должен держать очередь
+        try { const r = await fetch(u, { signal: ac.signal }); if (r.ok) return await r.blob(); throw new Error(r.status); }
         catch (err) { if (attempt >= 3) throw err; await new Promise((res) => setTimeout(res, 400 * (attempt + 1))); }
+        finally { clearTimeout(timer); }
       }
     };
     const worker = async () => { while (next < urls.length) { const k = next++; out[k] = await one(urls[k]); } };
@@ -418,6 +443,8 @@ void main() {
   // Один кадр вещи. z — место нанесения, которое сейчас смотрит в камеру; theta — на сколько градусов
   // вещь от него отвёрнута (со знаком).
   function paint(i, t, img, lk, theta, z) {
+    if (t.G && t.G.gl.isContextLost()) { t.G = null; t.ctx = null; t.glTries = Math.min(t.glTries, GL_TRIES - 3); }
+    if (!t.G && (!t.ctx || (t.glTries < GL_TRIES && performance.now() - t.glAt > GL_RETRY))) resetCanvas(t);
     if (!t.G) {                                  // нет WebGL2 — показываем вещь как есть, без перекраски и нанесения
       t.ctx.clearRect(0, 0, t.canvas.width, t.canvas.height);
       t.ctx.drawImage(img, 0, 0, t.canvas.width, t.canvas.height);
@@ -1039,5 +1066,5 @@ void main() {
     g.beginPath(); g.moveTo(400, 0); g.lineTo(400, 800); g.moveTo(0, 400); g.lineTo(800, 400); g.lineWidth = 6; g.stroke();
     C.src = cv; C.mono = false; C.scale = 1.25; logoChanged();
   }
-  window.izumHero = { open, close, go, setChapter, setColor, setZone, useText, useImage, grid, state: S, custom: C, nodes };
+  window.izumHero = { open, close, go, setChapter, setColor, setZone, useText, useImage, grid, state: S, custom: C, nodes, glErrors };
 })();
