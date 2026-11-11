@@ -108,8 +108,8 @@ window.IZUM_ITEMS = [
     specs: [["Верх", "плащевая ткань"], ["Изнанка", "в цвет бренда"], SEWN],
   },
   {
-    id: "cap", img: "img/turn/cap/lo/000.webp", w: 1107, h: 865,
-    turn: { dir: "img/turn/cap", n: 118, fw: 1480, fh: 944, ox: 172, oy: 60, ow: 1107, oh: 865 },
+    id: "cap", img: "img/turn/cap/lo/000.webp", w: 1111, h: 862,
+    turn: { dir: "img/turn/cap", n: 118, fw: 1480, fh: 944, ox: 170, oy: 61, ow: 1111, oh: 862 },
     print: { quad: [[0.365, 0.272], [0.559, 0.309], [0.502, 0.588], [0.307, 0.550]], surf: "accent", arc: 0.02 },
     inner: { surf: "dark", names: ["Тулья", "Козырёк"] },
     name: "Кепка", set: ACC,

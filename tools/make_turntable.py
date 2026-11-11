@@ -90,6 +90,31 @@ def cut(im):
     col = np.clip(np.where(region[..., None], (im - bg * (1 - aa)) / aa, im), 0, 255)
     return np.dstack([col, alpha * 255]).astype(np.uint8)
 
+MASKS = os.path.join(os.path.dirname(root), "Video", "ps_work", pid)   # маски Photoshop: tools/ps_mask.py
+
+def cut_ps(im, mask):
+    """RGBA по маске Photoshop («Выделить предмет»): ровный край без следов сжатия ролика и без тени.
+    Край поджимается на пиксель и сглаживается; цвет в приграничной полосе берётся изнутри вещи,
+    чтобы белый фон съёмки не давал светлой каймы."""
+    im = im.astype(np.float32)
+    solid = (mask > 127).astype(np.uint8)
+    k3 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+    alpha = cv2.GaussianBlur(cv2.erode(solid, k3).astype(np.float32), (0, 0), 0.85)
+    core = cv2.erode(solid, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))).astype(np.float32)
+    den = cv2.GaussianBlur(core, (0, 0), 3.0)
+    fill = cv2.GaussianBlur(im * core[..., None], (0, 0), 3.0) / np.maximum(den, 1e-3)[..., None]
+    col = np.where(core[..., None] > 0, im, np.where(den[..., None] > 0.01, fill, 0))
+    return np.dstack([np.clip(col, 0, 255), alpha * 255]).astype(np.uint8)
+
+def half(c):
+    """Уменьшение вдвое с предумноженной прозрачностью — цвет прозрачных пикселей не затекает в край."""
+    p = c.astype(np.float32); a = p[..., 3:] / 255
+    p[..., :3] *= a
+    q = cv2.resize(p, (max(1, c.shape[1] // 2), max(1, c.shape[0] // 2)), interpolation=cv2.INTER_AREA)
+    qa = np.maximum(q[..., 3:] / 255, 1e-4)
+    q[..., :3] = np.where(q[..., 3:] > 0.5, q[..., :3] / qa, 0)
+    return Image.fromarray(np.clip(q, 0, 255).astype(np.uint8), "RGBA")
+
 # Проход 1: общая рамка по всем кадрам и поиск скачков — на уменьшенных кадрах, это быстро.
 Q = 4
 boxes, small, total = [], [], 0
@@ -114,15 +139,21 @@ med = np.median(step)
 jumps = [int(k) for k in range(want) if step[k] > 3.2 * med and step[k] > 2.2 * max(step[(k - 2) % want], step[(k + 2) % want])]
 
 # Проход 2: вырезаем в рабочем размере и сразу пишем оба набора.
-meta = None
+meta = None; used_ps = 0
 for k, f in enumerate(frames()):
     if k >= want: break
-    c = cut(f)[y0:y1, x0:x1]
+    mp = os.path.join(MASKS, f"{k:03d}.png")
+    if os.path.exists(mp):
+        mask = np.array(Image.open(mp).convert("L"))
+        if mask.shape != f.shape[:2]: mask = cv2.resize(mask, (f.shape[1], f.shape[0]), interpolation=cv2.INTER_LINEAR)
+        c = cut_ps(f, mask)[y0:y1, x0:x1]; used_ps += 1
+    else:
+        c = cut(f)[y0:y1, x0:x1]
     hi = Image.fromarray(c, "RGBA")
     # Полный размер нужен только там, где вещь останавливается (первые градусы оборота):
     # в движении показываются кадры lo, иначе один оборот весил бы ~10 МБ и ~700 МБ в памяти.
     if is_hi(k, want): hi.save(os.path.join(out, "hi", f"{k:03d}.webp"), quality=88, method=5)
-    hi.resize((max(1, hi.width // 2), max(1, hi.height // 2)), Image.LANCZOS).save(os.path.join(out, "lo", f"{k:03d}.webp"), quality=82, method=5)
+    half(c).save(os.path.join(out, "lo", f"{k:03d}.webp"), quality=82, method=5)
     if k == 0:                   # рамка самой вещи (без тени) в нулевом кадре
         ys, xs = np.where(c[..., 3] > 200)
         meta = {"dir": f"img/turn/{pid}", "n": want, "fw": int(x1 - x0), "fh": int(y1 - y0),
@@ -130,4 +161,4 @@ for k, f in enumerate(frames()):
 
 size = lambda t: sum(os.path.getsize(os.path.join(out, t, f)) for f in os.listdir(os.path.join(out, t))) // 1024
 sys.stdout.reconfigure(encoding="utf-8")
-print("turn:", json.dumps(meta), f"  // hi {size('hi')} КБ, lo {size('lo')} КБ, исходный кадр {W}x{H}, кадров {total}, скачки: {jumps}")
+print("turn:", json.dumps(meta), f"  // hi {size('hi')} КБ, lo {size('lo')} КБ, исходный кадр {W}x{H}, кадров {total}, масок Photoshop {used_ps}, скачки: {jumps}")

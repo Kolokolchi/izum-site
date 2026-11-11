@@ -785,12 +785,10 @@ void main() {
           paint(i, tt, img, lk, theta, zone);
         }
         n.el.style.transform = `translate3d(${x}px,${y}px,${z}px) rotateZ(${rz}deg)${lack ? ` rotateY(${lack}deg)` : ""} scale(${sc})`;
-        n.sh.style.visibility = "hidden";   // тень уже есть в кадрах
-        continue;
-      }
-      n.el.style.transform = `translate3d(${x}px,${y}px,${z}px) rotateZ(${rz}deg) rotateY(${ry}deg) scale(${sc})`;
+      } else n.el.style.transform = `translate3d(${x}px,${y}px,${z}px) rotateZ(${rz}deg) rotateY(${ry}deg) scale(${sc})`;
 
-      const flatK = Math.abs(Math.cos((ry * Math.PI) / 180));
+      // тень под вещью: кадры вырезаны по контуру, без тени съёмки
+      const flatK = n.turn ? 0.9 : Math.abs(Math.cos((ry * Math.PI) / 180));
       const sy = lerp(baseY + size * 0.78, heroY + (n.hgt * n.heroK) / 2 + 34, e);
       const sw = (n.w * sc * (0.25 + 0.75 * flatK)) / 100;
       n.sh.style.opacity = op * lerp(0.9, 0.55, e);
