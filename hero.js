@@ -43,6 +43,7 @@
     ink: "#e5007d",
     text: "", font: "gotham",
     pat: "brick",           // раскладка паттерна, см. PATTERNS
+    part: 1,                // где печатать паттерн: 1 — снаружи, 2 — внутри, 3 — везде
     scale: 1,               // 1 — логотип занимает 80% зоны печати, 1.25 — всю зону
     ver: 0,                 // растёт при любом изменении — текстуры нанесения пересобираются
     off: ITEMS.map(() => ({ x: 0, y: 0 })),   // сдвиг логотипа внутри зоны печати, в долях зоны
@@ -66,11 +67,14 @@ uniform sampler2D uF, uP, uT;      // кадр вещи, зона печати �
 uniform vec3 uCol;                 // выбранный цвет
 uniform float uRec;                // 1 — перекрашивать
 uniform mat3 uH;                   // кадр → зона печати
-uniform float uArc, uK, uSurf, uAxis, uShift, uSquash, uDisp;
+uniform float uArc, uK, uSurf, uSurfB, uAxis, uShift, uSquash, uDisp;
+uniform vec4 uEb, uEx;             // эллипсы внутренней части: центр и полуоси в долях кадра
+uniform vec2 uPart;                // паттерн: печатать снаружи (x) и внутри (y)
 uniform int uMode;                 // 0 — без нанесения, 1 — логотип, 2 — паттерн
 uniform vec2 uSize, uTile, uRot;   // uRot — косинус и синус наклона паттерна
 in vec2 v; out vec4 o;
 float L(vec3 c) { return dot(c, vec3(.3, .59, .11)); }
+float ell(vec4 e) { return 1. - smoothstep(.94, 1.04, length((v - e.xy) / e.zw)); }
 void main() {
   vec4 s = texture(uF, v);
   s.a *= smoothstep(.04, .16, s.a);   // слабый шум альфы по краям (сжатие ролика) давал крапинки на цветном фоне
@@ -89,12 +93,18 @@ void main() {
   if (uMode > 0 && uK > 0.) {
     // складки и фактура ткани: локальная яркость относительно размытой
     float l0 = L(textureLod(uF, v, 1.).rgb), l5 = L(textureLod(uF, v, 5.).rgb);
-    float f = uSurf < .5 ? clamp(l0 / max(l5, .04), .55, 1.22) : clamp(1. + (l0 - l5) * 2.5, .62, 1.35);
-    // мелкое плетение ткани проступает сквозь краску
     float lr = L(s.rgb), l2 = L(textureLod(uF, v, 2.5).rgb);
-    f *= uSurf < .5 ? clamp(lr / max(l2, .04), .9, 1.1) : clamp(1. + (lr - l2) * 2., .86, 1.2);
-    // нанесение ложится только на свою поверхность: шнурки, молнии, канты остаются поверх
-    float surf = uSurf < .5 ? m : (1. - smoothstep(110., 170., L(c))) * (1. - m);
+    float fa = clamp(l0 / max(l5, .04), .55, 1.22) * clamp(lr / max(l2, .04), .9, 1.1);            // цветная ткань
+    float fd = clamp(1. + (l0 - l5) * 2.5, .62, 1.35) * clamp(1. + (lr - l2) * 2., .86, 1.2);       // чёрная ткань
+    float f = mix(fd, fa, m);                                                                        // + мелкое плетение
+    // Части вещи. Класс поверхности — по цвету пикселя: цветная ткань (ac) или чёрная (dk; тень под вещью не в счёт).
+    // Там, где внутренняя часть того же цвета, что и наружная (горловина футболки), её задаёт эллипс uEx.
+    // Шнурки, молнии, пуговицы, канты не попадают ни в одну часть и остаются поверх нанесения.
+    float ac = m, dk = (1. - smoothstep(110., 170., L(c))) * (1. - m) * smoothstep(.75, .95, s.a);
+    float cA = uSurf < .5 ? ac : dk, cB = uSurfB < .5 ? ac : dk;
+    float eb = uEb.z > 0. ? ell(uEb) : 1., ex = uEx.z > 0. ? ell(uEx) : 0.;
+    float mA = cA * (1. - ex), mB = max(cB * eb, ac * ex);                                           // снаружи и внутри
+    float surf = uMode == 1 ? mA : clamp(uPart.x * mA + uPart.y * mB, 0., 1.);
     // сдвиг по рельефу: рисунок чуть «плывёт» вместе со складками
     vec2 e = 3. / uSize;
     vec2 g = vec2(L(textureLod(uF, v + vec2(e.x, 0.), 2.).rgb) - L(textureLod(uF, v - vec2(e.x, 0.), 2.).rgb),
@@ -132,7 +142,7 @@ void main() {
     const loc = gl.getAttribLocation(prog, "p");
     gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
     const u = {};
-    for (const name of ["uF", "uP", "uT", "uCol", "uRec", "uH", "uArc", "uK", "uSurf", "uAxis", "uShift", "uSquash", "uDisp", "uMode", "uSize", "uTile", "uRot"]) u[name] = gl.getUniformLocation(prog, name);
+    for (const name of ["uF", "uP", "uT", "uCol", "uRec", "uH", "uArc", "uK", "uSurf", "uSurfB", "uEb", "uEx", "uPart", "uAxis", "uShift", "uSquash", "uDisp", "uMode", "uSize", "uTile", "uRot"]) u[name] = gl.getUniformLocation(prog, name);
     const tex = (unit, wrapMode, mips) => {
       const t = gl.createTexture();
       gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t);
@@ -315,7 +325,7 @@ void main() {
   }
 
   // ---------- нанесение ----------
-  const PRINT_W = 1024;
+  const PRINT_W = 1024, ZERO4 = [0, 0, 0, 0];
   // Раскладки паттерна: gx, gy — шаг по горизонтали и зазор между рядами в ширинах логотипа,
   // brick — второй ряд сдвинут на полшага, k — размер, ang — наклон, flip — второй ряд перевёрнут.
   const PATTERNS = {
@@ -331,7 +341,11 @@ void main() {
   // Логотип в нужном цвете: «как в файле», белый или чёрный; текст — контрастно к поверхности вещи.
   function inked(i) {
     let tint = C.tint;
-    if (tint === "orig" && C.mono) tint = ITEMS[i].print.surf === "dark" || S.color.lum <= 0.55 ? "white" : "black";
+    if (tint === "orig" && C.mono) {               // текст — контрастно к той части вещи, куда он ложится
+      const inside = C.mode === "pattern" && C.part === 2;
+      const surf = inside ? (ITEMS[i].inner || {}).surf || "accent" : ITEMS[i].print.surf;
+      tint = surf === "dark" || S.color.lum <= 0.55 ? "white" : "black";
+    }
     if (tint === "orig") return C.src;
     tmp.width = C.src.width; tmp.height = C.src.height;
     tmpX.globalCompositeOperation = "source-over";
@@ -403,6 +417,11 @@ void main() {
     gl.uniform1i(u.uMode, !on ? 0 : C.mode === "pattern" ? 2 : 1);
     gl.uniform1f(u.uK, lk * 0.97);
     gl.uniform1f(u.uSurf, pr.surf === "dark" ? 1 : 0);
+    const inn = ITEMS[i].inner || {};
+    gl.uniform1f(u.uSurfB, inn.surf === "dark" ? 1 : 0);
+    gl.uniform4fv(u.uEb, inn.in || ZERO4);
+    gl.uniform4fv(u.uEx, inn.cut || ZERO4);
+    gl.uniform2f(u.uPart, C.part & 1 ? 1 : 0, C.part & 2 ? 1 : 0);
     gl.uniformMatrix3fv(u.uH, false, t.H);
     gl.uniform1f(u.uArc, pr.arc || 0);
     gl.uniform1f(u.uDisp, (C.mode === "pattern" ? 0.1 : 0.07) * (pr.surf === "dark" ? 0.35 : 1));   // на чёрном стёганом рельеф резкий — сдвигаем слабее
@@ -655,6 +674,9 @@ void main() {
     $("dText").textContent = it.text;
     $("dKit").innerHTML = METHODS.map((k) => `<li>${k}</li>`).join("");
     $("dSpecs").innerHTML = it.specs.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("");
+    const names = (it.inner && it.inner.names) || ["Снаружи", "Внутри"];      // у каждой вещи свои названия частей
+    $("segPart").querySelector('[data-v="1"]').textContent = names[0];
+    $("segPart").querySelector('[data-v="2"]').textContent = names[1];
   }
 
   // ---------- действия ----------
@@ -905,6 +927,12 @@ void main() {
     logoChanged();
   });
   seg("segMode", "mode"); seg("segTint", "tint"); seg("segPat", "pat");
+  $("segPart").addEventListener("click", (ev) => {              // маска паттерна: снаружи / внутри / везде
+    const b = ev.target.closest("button"); if (!b) return;
+    C.part = +b.dataset.v;
+    $("segPart").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b));
+    logoChanged();
+  });
   $("segFont").addEventListener("click", (ev) => {
     const b = ev.target.closest("button"); if (!b) return;
     C.font = b.dataset.v;
