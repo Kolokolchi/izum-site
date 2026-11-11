@@ -42,6 +42,7 @@
     tint: "orig",           // orig | white | black | custom (цвет ink)
     ink: "#e5007d",
     text: "", font: "gotham",
+    pat: "brick",           // раскладка паттерна, см. PATTERNS
     scale: 1,               // 1 — логотип занимает 80% зоны печати, 1.25 — всю зону
     ver: 0,                 // растёт при любом изменении — текстуры нанесения пересобираются
     off: ITEMS.map(() => ({ x: 0, y: 0 })),   // сдвиг логотипа внутри зоны печати, в долях зоны
@@ -67,7 +68,7 @@ uniform float uRec;                // 1 — перекрашивать
 uniform mat3 uH;                   // кадр → зона печати
 uniform float uArc, uK, uSurf, uAxis, uShift, uSquash, uDisp;
 uniform int uMode;                 // 0 — без нанесения, 1 — логотип, 2 — паттерн
-uniform vec2 uSize, uTile;
+uniform vec2 uSize, uTile, uRot;   // uRot — косинус и синус наклона паттерна
 in vec2 v; out vec4 o;
 float L(vec3 c) { return dot(c, vec3(.3, .59, .11)); }
 void main() {
@@ -109,7 +110,7 @@ void main() {
       pr = texture(uP, pp); la = pr.a * smoothstep(0., .006, min(d.x, d.y));
     } else {
       vec2 px = v * uSize;
-      pr = texture(uT, vec2(.98 * px.x + .2 * px.y, -.2 * px.x + .98 * px.y) / uTile + g * uDisp); la = pr.a * .92;
+      pr = texture(uT, vec2(uRot.x * px.x + uRot.y * px.y, -uRot.y * px.x + uRot.x * px.y) / uTile + g * uDisp); la = pr.a * .92;
     }
     la *= surf * uK;
     base = mix(base, clamp(pr.rgb / max(pr.a, .001) * pow(f, .9), 0., 1.), la);
@@ -131,7 +132,7 @@ void main() {
     const loc = gl.getAttribLocation(prog, "p");
     gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
     const u = {};
-    for (const name of ["uF", "uP", "uT", "uCol", "uRec", "uH", "uArc", "uK", "uSurf", "uAxis", "uShift", "uSquash", "uDisp", "uMode", "uSize", "uTile"]) u[name] = gl.getUniformLocation(prog, name);
+    for (const name of ["uF", "uP", "uT", "uCol", "uRec", "uH", "uArc", "uK", "uSurf", "uAxis", "uShift", "uSquash", "uDisp", "uMode", "uSize", "uTile", "uRot"]) u[name] = gl.getUniformLocation(prog, name);
     const tex = (unit, wrapMode, mips) => {
       const t = gl.createTexture();
       gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t);
@@ -211,7 +212,7 @@ void main() {
         let G = null;
         try { G = makeGL(canvas); } catch (e) { G = null; }
         const t = { ...turn, canvas, G, ctx: G ? null : canvas.getContext("2d"), lw, lh, blobs: new Array(turn.n), sm: new Array(turn.n), md: new Array(turn.n), hi: new Array(HI_FRAMES),
-                    complete: false, full: false, busy: false, drop: false, hiState: 0, dirty: true, shown: null, pk: "", printKey: "", tileKey: "", tile: [1, 1],
+                    complete: false, full: false, busy: false, drop: false, hiState: 0, dirty: true, shown: null, pk: "", printKey: "", tileKey: "", tile: [1, 1], rot: [1, 0],
                     H: homography(ITEMS[nodes.indexOf(node)].print.quad) };
         ks.forEach((k, j) => { t.blobs[k] = got[j]; });
         const half = Math.max(1, Math.round(lw / 2));
@@ -315,6 +316,16 @@ void main() {
 
   // ---------- нанесение ----------
   const PRINT_W = 1024;
+  // Раскладки паттерна: gx, gy — шаг по горизонтали и зазор между рядами в ширинах логотипа,
+  // brick — второй ряд сдвинут на полшага, k — размер, ang — наклон, flip — второй ряд перевёрнут.
+  const PATTERNS = {
+    brick: { gx: 1.6, gy: 0.42, brick: true, k: 1, ang: 0.2 },
+    grid: { gx: 1.5, gy: 0.5, brick: false, k: 1, ang: 0 },
+    diagonal: { gx: 1.7, gy: 0.55, brick: true, k: 1.1, ang: 0.62 },
+    dense: { gx: 1.22, gy: 0.16, brick: true, k: 0.58, ang: 0.2 },
+    lines: { gx: 1.08, gy: 0.5, brick: true, k: 0.8, ang: 0 },
+    flip: { gx: 1.45, gy: 0.3, brick: true, k: 1, ang: 0, flip: true },
+  };
   const tmp = document.createElement("canvas"), tmpX = tmp.getContext("2d");
 
   // Логотип в нужном цвете: «как в файле», белый или чёрный; текст — контрастно к поверхности вещи.
@@ -343,7 +354,7 @@ void main() {
     return { W, H, w, h, x: W * (0.5 + o.x) - w / 2, y: H * (0.5 + o.y) - h / 2 };
   }
   function syncPrint(i, t) {
-    const key = C.ver + "|" + (C.mono && C.tint === "orig" ? S.color.id : "");
+    const key = C.ver + "|" + C.pat + "|" + (C.mono && C.tint === "orig" ? S.color.id : "");
     if (C.mode === "logo") {
       if (t.printKey === key) return;
       t.printKey = key;
@@ -356,18 +367,22 @@ void main() {
     } else {
       if (t.tileKey === key) return;
       t.tileKey = key;
-      // плитка паттерна: два ряда со сдвигом на полшага
-      const w = t.fw * 0.15 * C.scale, h = (w * C.src.height) / C.src.width;
-      const tw = w * 1.6, th = 2 * (h + w * 0.42), q = 260 / w;
-      printCv.width = Math.round(tw * q); printCv.height = Math.round(th * q);
+      // Плитка паттерна — два ряда; раскладка задаёт шаг, сдвиг второго ряда, размер и переворот.
+      const P = PATTERNS[C.pat] || PATTERNS.brick;
+      const w = t.fw * 0.15 * C.scale * P.k, h = (w * C.src.height) / C.src.width;
+      const tw = w * P.gx, rowH = h + w * P.gy, th = 2 * rowH, q = 260 / w;
+      printCv.width = Math.max(2, Math.round(tw * q)); printCv.height = Math.max(2, Math.round(th * q));
       printX.clearRect(0, 0, printCv.width, printCv.height);
       printX.imageSmoothingQuality = "high";
       const src = inked(i), W = printCv.width, H = printCv.height, lw = w * q, lh = h * q;
-      printX.drawImage(src, (W - lw) / 2, H * 0.25 - lh / 2, lw, lh);
-      printX.drawImage(src, -lw / 2, H * 0.75 - lh / 2, lw, lh);
-      printX.drawImage(src, W - lw / 2, H * 0.75 - lh / 2, lw, lh);
+      const put = (cx, cy, flip) => {
+        printX.save(); printX.translate(cx, cy); if (flip) printX.rotate(Math.PI);
+        printX.drawImage(src, -lw / 2, -lh / 2, lw, lh); printX.restore();
+      };
+      put(W / 2, H * 0.25, false);
+      if (P.brick) { put(0, H * 0.75, P.flip); put(W, H * 0.75, P.flip); } else put(W / 2, H * 0.75, P.flip);
       upload(t.G, 2, t.G.texT, printCv, true);
-      t.tile = [tw, th];
+      t.tile = [tw, th]; t.rot = [Math.cos(P.ang), Math.sin(P.ang)];
     }
   }
 
@@ -393,6 +408,7 @@ void main() {
     gl.uniform1f(u.uDisp, (C.mode === "pattern" ? 0.1 : 0.07) * (pr.surf === "dark" ? 0.35 : 1));   // на чёрном стёганом рельеф резкий — сдвигаем слабее
     gl.uniform2f(u.uSize, t.fw, t.fh);
     gl.uniform2f(u.uTile, t.tile[0], t.tile[1]);
+    gl.uniform2f(u.uRot, t.rot[0], t.rot[1]);
     // вещь — примерно цилиндр: при повороте зона печати уезжает вбок и сжимается
     const phi = ((pr.phi || 0) * Math.PI) / 180, a = phi + ((pr.dir || 1) * theta * Math.PI) / 180;
     gl.uniform1f(u.uAxis, t.axis);
@@ -405,6 +421,7 @@ void main() {
   function logoChanged() {
     C.ver++;
     app.dataset.logo = C.src ? "1" : "0";
+    app.dataset.pattern = C.mode === "pattern" ? "1" : "0";
     $("toolHint").textContent = !C.src ? "Загрузите файл или напишите название — логотип сразу ляжет в зону печати."
       : C.mode === "pattern" ? "Паттерн покрывает вещь целиком. Размер — ползунком или колесом мыши над вещью."
       : "Двигайте логотип прямо на вещи — за зону печати он не выйдет. Размер — ползунком или колесом мыши.";
@@ -887,7 +904,7 @@ void main() {
     $(id).querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b));
     logoChanged();
   });
-  seg("segMode", "mode"); seg("segTint", "tint");
+  seg("segMode", "mode"); seg("segTint", "tint"); seg("segPat", "pat");
   $("segFont").addEventListener("click", (ev) => {
     const b = ev.target.closest("button"); if (!b) return;
     C.font = b.dataset.v;
