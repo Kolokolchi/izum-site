@@ -372,6 +372,16 @@ void main() {
     st.setProperty("--accent-hi", mixHex(rgb, 0.3));
     st.setProperty("--on", lum > 0.55 ? "#0d0d0d" : "#ffffff");
     st.setProperty("--accent-ink", lum < 0.3 ? mixHex(rgb, 0.38) : c.hex);
+    // сцена презентации: тёмный тон цвета вещи — на нём вещь читается, а не сливается с заливкой
+    const tone = (k, add) => "#" + rgb.map((v) => Math.round(v * k + add).toString(16).padStart(2, "0")).join("");
+    const soft = rgb.map((v) => Math.round(v + (255 - v) * 0.35)).join(", ");
+    st.setProperty("--stage", tone(0.2, 9));
+    st.setProperty("--stage-hi", tone(0.27, 14));
+    st.setProperty("--lit", lum < 0.45 ? mixHex(rgb, 0.45) : c.hex);
+    st.setProperty("--glow", `rgba(${soft}, .42)`);
+    st.setProperty("--glow-2", `rgba(${soft}, .16)`);
+    st.setProperty("--glow-d", `rgba(${soft}, .78)`);
+    st.setProperty("--glow-d2", `rgba(${soft}, .36)`);
     app.dataset.on = lum > 0.55 ? "dark" : "light";
     document.querySelectorAll("[data-swatches] button").forEach((b) => b.classList.toggle("on", b.dataset.id === c.id));
     try { localStorage.setItem("izum-color", c.id); } catch (e) { /* хранилище недоступно — не страшно */ }
@@ -804,6 +814,7 @@ void main() {
     if (S.active >= 0) release(S.active);
     S.target = Math.round(S.pos + wrap(i - S.pos));
     S.active = i;
+    app.dataset.body = ITEMS[i].print && ITEMS[i].print.surf === "dark" ? "dark" : "light";   // чёрной вещи нужна подсветка сильнее
     if (!ZONES[i].some((z) => z.id === C.zone)) C.zone = "front";   // у этой вещи такого места нет
     const n = nodes[i];
     n.rotT = Math.round(n.rot / 360) * 360 + 360 + chAngle(ch, i);
