@@ -8,8 +8,8 @@
   <meta name="robots" content="noindex">
   <link rel="icon" href="img/izum-logo.png">
   <link rel="preload" href="fonts/GothamPro-BlackItalic.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="hero.css?v=1112d">
-  <link rel="stylesheet" href="site.css?v=1112d">
+  <link rel="stylesheet" href="hero.css?v=1112e">
+  <link rel="stylesheet" href="site.css?v=1112e">
 </head>
 <body>
   <!-- ================= ПЕРВЫЙ ЭКРАН: слайдер-примерочная ================= -->
@@ -90,12 +90,14 @@
                   <button data-v="logo" class="on">Логотип</button>
                   <button data-v="pattern">Паттерн</button>
                 </div>
-                <div class="seg" id="segTint" role="group" aria-label="Цвет нанесения">
-                  <button data-v="orig" class="on">Авто</button>
-                  <button data-v="white">Белый</button>
-                  <button data-v="black">Чёрный</button>
-                </div>
-                <label class="ink" title="Свой цвет нанесения"><input type="color" id="ink" value="#e5007d" aria-label="Свой цвет нанесения"></label>
+                <span class="tint-group">
+                  <div class="seg" id="segTint" role="group" aria-label="Цвет нанесения">
+                    <button data-v="orig" class="on">Авто</button>
+                    <button data-v="white">Белый</button>
+                    <button data-v="black">Чёрный</button>
+                  </div>
+                  <label class="ink" title="Свой цвет нанесения"><input type="color" id="ink" value="#e5007d" aria-label="Свой цвет нанесения"></label>
+                </span>
               </div>
               <div class="tool-row zone-row">
                 <span class="tool-label">Место</span>
@@ -248,7 +250,7 @@
     </section>
   </main>
 
-  <script src="data.js?v=1112d"></script>
-  <script src="hero.js?v=1112d"></script>
+  <script src="data.js?v=1112e"></script>
+  <script src="hero.js?v=1112e"></script>
 </body>
 </html>

@@ -2,9 +2,10 @@
 main { background: #fff; }
 .s { padding: clamp(64px, 10vw, 150px) clamp(20px, 7vw, 110px); }
 .eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .24em; text-transform: uppercase; opacity: .55; margin-bottom: 22px; }
-.h-xl { font-weight: 900; font-style: italic; text-transform: uppercase; font-size: clamp(34px, 6.6vw, 112px); line-height: .94; letter-spacing: -.02em; text-wrap: balance; }
+.h-xl { font-weight: 900; font-style: italic; text-transform: uppercase; font-size: clamp(min(34px, 9.4vw), 6.6vw, 112px); line-height: .94; letter-spacing: -.02em; text-wrap: balance; }
 .h-lg { font-weight: 900; font-style: italic; text-transform: uppercase; font-size: clamp(28px, 4.2vw, 64px); line-height: .98; letter-spacing: -.015em; text-wrap: balance; }
-.h-xl em, .h-lg em { font-style: inherit; background: var(--accent); color: var(--on); padding: 0 .12em; box-decoration-break: clone; -webkit-box-decoration-break: clone; transition: background .4s, color .4s; }
+/* Плашка ниже высоты строки: при плотном межстрочном интервале сплошной фон срезал низ букв и запятые строки выше. */
+.h-xl em, .h-lg em { font-style: inherit; color: var(--on); padding: 0 .12em; box-decoration-break: clone; -webkit-box-decoration-break: clone; background: linear-gradient(var(--accent), var(--accent)) no-repeat 0 var(--em-y, 50%) / 100% .9em; transition: color .4s; }
 .p-lg { font-size: clamp(16px, 1.5vw, 22px); line-height: 1.55; font-weight: 500; max-width: 38em; margin-top: 30px; opacity: .82; }
 
 .s-dirs { display: grid; grid-template-columns: 1.35fr 1fr 1fr; gap: 16px; padding-top: 0; }

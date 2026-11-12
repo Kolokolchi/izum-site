@@ -978,6 +978,9 @@ void main() {
       go(ev.deltaX > 0 ? 1 : -1);
       return;
     }
+    // панель выше окна прокручивается сама — колесо над ней не листает главы
+    const pan = !horiz && ev.target.closest(".panel");
+    if (pan && pan.scrollHeight > pan.clientHeight + 1) return;
     ev.preventDefault();
     const delta = horiz ? ev.deltaX : ev.deltaY;
     if (S.chapter === CUSTOM && C.src && pick(ev.clientX, ev.clientY) === S.active) {   // над вещью — размер нанесения
