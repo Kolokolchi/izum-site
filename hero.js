@@ -650,7 +650,7 @@ void main() {
     S.size = S.mobile ? Math.min(S.W * 0.44, S.H * 0.28) : Math.min(S.H * 0.3, S.W * 0.2);
     S.R = S.size / STEP * (S.mobile ? 1.15 : 1.02);
     const boxW = S.mobile ? S.W * 0.66 : S.W * 0.4;
-    const boxH = S.mobile ? S.H * 0.25 : S.H * 0.62;
+    const boxH = S.mobile ? S.H * 0.23 : S.H * 0.62;
     ITEMS.forEach((it, i) => {
       const n = nodes[i];
       const long = Math.max(it.w, it.h), short = Math.min(it.w, it.h);
@@ -692,7 +692,7 @@ void main() {
     S.flat += ((S.active >= 0 && S.chapter === CUSTOM ? 1 : 0) - S.flat) * (1 - Math.exp(-dt * 5));
 
     const heroX = S.mobile ? 0 : W * 0.19;
-    const heroY = S.mobile ? -H * 0.27 : H * 0.03;
+    const heroY = S.mobile ? -H * 0.285 : H * 0.03;
     const baseY = -H * 0.06;
 
     for (let i = 0; i < N; i++) {
@@ -1140,6 +1140,19 @@ void main() {
   });
 
   if ("IntersectionObserver" in window) new IntersectionObserver((es) => { S.visible = es[0].isIntersecting; }).observe(app);
+
+  // Автопрокрутка: пока слайдером не пользуются, вещи сменяются сами. Любое действие (мышь, касание,
+  // колесо, клавиша) откладывает её на AUTO_WAIT; в открытой карточке вещи и на скрытой вкладке она стоит.
+  const AUTO_WAIT = 6000, AUTO_STEP = 3400;
+  let autoAt = performance.now() + AUTO_WAIT;
+  const still = () => { autoAt = performance.now() + AUTO_WAIT; };
+  ["pointerdown", "pointermove", "wheel", "keydown", "touchstart"].forEach((e) => window.addEventListener(e, still, { passive: true, capture: true }));
+  const calm = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (!calm) setInterval(() => {
+    const now = performance.now();
+    if (S.active >= 0 || !S.visible || document.hidden || order.classList.contains("on") || now < autoAt) return;
+    S.target = Math.round(S.target) + 1; autoAt = now + AUTO_STEP;
+  }, 300);
   window.addEventListener("resize", layout);
 
   let saved = null;

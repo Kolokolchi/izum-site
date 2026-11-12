@@ -38,14 +38,23 @@ for old in os.listdir(out):      # кадры прежнего формата л
 _pp = os.path.join(os.path.dirname(root), "Video", "ps_work", pid, "patch.json")
 PATCH = {int(k): int(v) for k, v in json.load(open(_pp)).items()} if os.path.exists(_pp) else {}
 
+_keep = {}                       # кадры-замены, читаются один раз (замена может стоять и позже испорченного кадра)
+if PATCH:
+    _cap = cv2.VideoCapture(video); _k = 0
+    while True:
+        _ok, _f = _cap.read()
+        if not _ok: break
+        if _k in PATCH.values(): _keep[_k] = _f
+        _k += 1
+    _cap.release()
+
 def frames():
-    cap = cv2.VideoCapture(video); keep = {}; k = -1
+    cap = cv2.VideoCapture(video); k = -1
     while True:
         ok, f = cap.read()
         if not ok: break
         k += 1
-        if k in PATCH.values(): keep[k] = f
-        if k in PATCH: f = keep[PATCH[k]]
+        if k in PATCH: f = _keep[PATCH[k]]
         h, w = f.shape[:2]
         if h > WORK: f = cv2.resize(f, (round(w * WORK / h), WORK), interpolation=cv2.INTER_AREA)
         yield cv2.cvtColor(f, cv2.COLOR_BGR2RGB)

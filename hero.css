@@ -280,7 +280,18 @@ textarea.text-logo { width: 100%; resize: none; line-height: 1.25; padding: 8px 
 /* на телефоне в примерке панель высокая — убираем лишние подписи, чтобы она не наезжала на вещь */
 @media (max-width: 820px) {
   .app[data-chapter="2"] .kicker, .app[data-chapter="2"] .chapter[data-ch="2"] h3, .app[data-chapter="2"] .tool-label { display: none; }
-  .app[data-chapter="2"] .title { font-size: 22px; margin-bottom: 8px; }
+  .app[data-chapter="2"] .title { display: none; }
+  /* главы лежат в одной ячейке, и панель получала высоту самой длинной (примерки): на телефоне
+     короткие главы уезжали вверх, на вещь. Здесь места занимает только открытая глава. */
+  .chapter { display: none; }
+  .app[data-chapter="0"] .chapter[data-ch="0"], .app[data-chapter="1"] .chapter[data-ch="1"], .app[data-chapter="2"] .chapter[data-ch="2"] { display: block; animation: chapter-in .5s var(--ease) both; }
+  /* примерка выше экрана небольшого телефона: панель не заходит на вещь, а прокручивается под ней */
+  .app[data-chapter="2"] .panel { max-height: calc(100% - 78px - 36%); overflow-y: auto; overscroll-behavior: contain; }
+  /* карточка вещи: описание и способы нанесения компактнее */
+  .lead { font-size: 13px; line-height: 1.42; }
+  .kit span { margin-bottom: 7px; font-size: 10px; }
+  .kit ul { gap: 6px; } .kit li { padding: 5px 10px 4px; font-size: 11px; }
+  .kicker { margin-bottom: 6px; } .title { margin-bottom: 8px; }
   .text-box { gap: 5px; } textarea.text-logo { padding: 4px 2px; }
   .seg button { padding: 7px 11px 6px; }
   .panel-nav { margin-top: 10px; }
@@ -299,3 +310,4 @@ textarea.text-logo { width: 100%; resize: none; line-height: 1.25; padding: 8px 
 .app[data-zones="1"]:not([data-pattern="1"]) .zone-row { display: flex; }
 #segZone button[hidden] { display: none; }
 #segZone button.has::after { content: ""; display: inline-block; width: 6px; height: 6px; margin-left: 7px; border-radius: 50%; background: currentColor; vertical-align: 1px; }
+@keyframes chapter-in { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: none; } }
