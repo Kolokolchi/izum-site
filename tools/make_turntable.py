@@ -33,11 +33,19 @@ for old in os.listdir(out):      # кадры прежнего формата л
     p = os.path.join(out, old)
     if os.path.isfile(p): os.remove(p)
 
+# Заплатка ролика: Video/ps_work/<id>/patch.json {"кадр": "кадр-замена"} — испорченные кадры (наплыв двух поз)
+# подменяются более ранними чистыми кадрами того же ролика; маска берётся от кадра-замены.
+_pp = os.path.join(os.path.dirname(root), "Video", "ps_work", pid, "patch.json")
+PATCH = {int(k): int(v) for k, v in json.load(open(_pp)).items()} if os.path.exists(_pp) else {}
+
 def frames():
-    cap = cv2.VideoCapture(video)
+    cap = cv2.VideoCapture(video); keep = {}; k = -1
     while True:
         ok, f = cap.read()
         if not ok: break
+        k += 1
+        if k in PATCH.values(): keep[k] = f
+        if k in PATCH: f = keep[PATCH[k]]
         h, w = f.shape[:2]
         if h > WORK: f = cv2.resize(f, (round(w * WORK / h), WORK), interpolation=cv2.INTER_AREA)
         yield cv2.cvtColor(f, cv2.COLOR_BGR2RGB)
@@ -152,7 +160,7 @@ jumps = [int(k) for k in range(want) if step[k] > 3.2 * med and step[k] > 2.2 * 
 meta = None; used_ps = 0; holes = 0
 for k, f in enumerate(frames()):
     if k >= want: break
-    mp = os.path.join(MASKS, f"{k:03d}.png")
+    mp = os.path.join(MASKS, f"{PATCH.get(k, k):03d}.png")
     if os.path.exists(mp):
         mask = np.array(Image.open(mp).convert("L"))
         if mask.shape != f.shape[:2]: mask = cv2.resize(mask, (f.shape[1], f.shape[0]), interpolation=cv2.INTER_LINEAR)
