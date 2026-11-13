@@ -8,8 +8,8 @@
   <meta name="robots" content="noindex">
   <link rel="icon" href="img/izum-logo.png">
   <link rel="preload" href="fonts/GothamPro-BlackItalic.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="hero.css?v=1112e">
-  <link rel="stylesheet" href="site.css?v=1112e">
+  <link rel="stylesheet" href="hero.css?v=1113p">
+  <link rel="stylesheet" href="site.css?v=1113p">
 </head>
 <body>
   <!-- ================= ПЕРВЫЙ ЭКРАН: слайдер-примерочная ================= -->
@@ -22,13 +22,14 @@
     <div class="izum-line izum-line-top" aria-hidden="true"></div>
     <header class="top">
       <a class="brand" href="#top">
-        <img src="img/izum-logo.png" alt="Izum Design &amp; Production">
+        <img src="img/izum-logo.png" srcset="img/izum-logo.png 1x, img/izum-logo-2x.png 2x" width="51" height="62" alt="Izum Design &amp; Production">
         <span>Izum<br>Design &amp; Production</span>
       </a>
       <nav class="menu">
         <a href="products.html">Продукция</a>
         <a href="wholesale.html">Одежда оптом</a>
         <a href="production.html">Производство</a>
+        <a href="constructor.html">Конструктор</a>
         <a class="menu-cta" href="#contacts">Связаться</a>
       </nav>
       <span class="count" id="count">01 / 06</span>
@@ -45,7 +46,7 @@
       <button class="arrow arrow-next" id="next" aria-label="Следующая вещь"><svg viewBox="0 0 24 24"><path d="M9 4l8 8-8 8"/></svg></button>
       <div class="caption">
         <div class="caption-set" id="capSet"></div>
-        <h1 class="caption-name" id="capName"></h1>
+        <p class="caption-name" id="capName"></p>
         <div class="rail izum-line"><i id="railDot"></i></div>
         <button class="open-btn" id="openBtn">Примерить свой логотип</button>
         <div class="swatches" data-swatches aria-label="Цвет"></div>
@@ -190,9 +191,26 @@
 
   <!-- ================= ЧЕРНОВИК РАЗДЕЛОВ ================= -->
   <main>
+    <!-- Конструктор: отдельная кнопка сразу под слайдером, ведёт на страницу конструктора -->
+    <section class="s-mk" id="constructor">
+      <div class="s-mk-text">
+        <p class="eyebrow">Конструктор · 3D</p>
+        <h2 class="h-xl">Соберите<br>свой мерч</h2>
+        <p class="p-lg">Логотип, надпись и кайма — в любом месте изделия: на груди, спине, рукавах и бейке. Сразу видно в 3D со всех сторон, с размерами в сантиметрах. Готовый макет уходит менеджеру одной кнопкой.</p>
+        <a class="btn s-mk-btn" href="constructor.html">Открыть конструктор<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+        <ul class="s-mk-list">
+          <li>Мужская и женская футболки</li>
+          <li>Печать на любой детали кроя</li>
+          <li>Раскладка для производства</li>
+        </ul>
+      </div>
+      <a class="s-mk-art" href="constructor.html" aria-label="Открыть конструктор">
+        <img src="img/constructor-tee.webp" alt="Футболка с логотипом и каймой, собранная в конструкторе" width="890" height="1100" loading="lazy">
+      </a>
+    </section>
     <section class="s s-intro">
       <p class="eyebrow">Алматы · собственное производство</p>
-      <h2 class="h-xl">Мы не рекламное агентство.<br><em>Мы — продакшн.</em></h2>
+      <h1 class="h-xl">Мы не рекламное агентство.<br><em>Мы — продакшн.</em></h1>
       <p class="p-lg">Шьём одежду партиями, делаем корпоративный мерч и наносим логотипы — на собственной швейной и печатной базе в Алматы. Один подрядчик вместо нескольких.</p>
     </section>
 
@@ -222,7 +240,7 @@
         <p class="eyebrow">Производство</p>
         <h2 class="h-lg">Все этапы заказа — в одном месте</h2>
         <p class="p-lg">Швейный и печатный цех, контроль качества от ткани до финального нанесения. Работаем и с небольшими, и с крупными тиражами.</p>
-        <a class="btn" style="display:inline-block;margin-top:34px;background:#fff;color:#0d0d0d" href="production.html">О производстве</a>
+        <a class="btn" href="production.html">О производстве</a>
       </div>
       <ol class="steps">
         <li><b>Идея и модель</b><span>разработка, лекала, образец</span></li>
@@ -250,7 +268,7 @@
     </section>
   </main>
 
-  <script src="data.js?v=1112e"></script>
-  <script src="hero.js?v=1112e"></script>
+  <script src="data.js?v=1113p"></script>
+  <script src="hero.js?v=1113p"></script>
 </body>
 </html>

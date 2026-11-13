@@ -8,37 +8,53 @@ body.page { background: #fff; }
 .bar .swatches button { width: 18px; height: 18px; border-width: 1.5px; }
 .bar .swatches button.on { box-shadow: 0 0 0 1.5px #fff, 0 0 0 3.5px var(--ink); }
 
-[data-rev] { opacity: 0; transform: translateY(34px); transition: opacity .8s var(--ease), transform .8s var(--ease); transition-delay: calc(var(--i, 0) * 70ms); }
-[data-rev].in { opacity: 1; transform: none; }
-@media (prefers-reduced-motion: reduce) { [data-rev] { opacity: 1; transform: none; transition: none; } }
+/* Якорные ссылки (#stock, #price, #contacts): цель не уезжает под липкую шапку. */
+.page [id] { scroll-margin-top: 92px; }
+
+/* Появление при прокрутке. Блоки спрятаны, только если скрипты включены: класс js ставит строка в <head> страницы.
+   Если site.js задержался (на <html> ещё нет rev-on), через 3 с блоки показываются сами — страница не остаётся пустой.
+   :where() держит вес правил прежним: иначе они перебивали бы подъём карточки при наведении. */
+:where(.js) [data-rev] { opacity: 0; transform: translateY(34px); transition: opacity .8s var(--ease), transform .8s var(--ease); transition-delay: calc(var(--i, 0) * 70ms); }
+:where(.js) [data-rev].in { opacity: 1; transform: none; }
+:where(.js:not(.rev-on)) [data-rev] { animation: rev-late .6s 3s forwards; }
+@keyframes rev-late { to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { :where(.js) [data-rev] { opacity: 1; transform: none; transition: none; animation: none; } }
 
 .ph { display: grid; grid-template-columns: 1.1fr .9fr; gap: clamp(20px, 4vw, 70px); align-items: center; padding: clamp(46px, 7vw, 110px) clamp(20px, 7vw, 110px) clamp(40px, 6vw, 90px); background: var(--paper); overflow: hidden; }
 .ph .p-lg { margin-top: 26px; }
 .ph-cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 36px; }
 .ph-art { position: relative; aspect-ratio: 1 / .92; }
-.ph-art::before { content: ""; position: absolute; inset: 6% 4% 2% 8%; border-radius: 50%; background: var(--accent); transition: background .4s; }
+.ph-art::before { content: ""; position: absolute; inset: 6% 4% 2% 8%; border-radius: 50%; background: var(--accent); box-shadow: inset 0 0 0 2px var(--accent-edge); transition: background .4s; }
 .ph-art img { position: absolute; filter: drop-shadow(0 26px 30px rgba(0, 0, 0, .2)); }
 .ph-art .a1 { width: 62%; left: 20%; top: 4%; z-index: 2; }
 .ph-art .a2 { width: 40%; left: -4%; bottom: 0; transform: rotate(-9deg); }
 .ph-art .a3 { width: 40%; right: -4%; bottom: 3%; transform: rotate(8deg); z-index: 3; }
 
+/* выбор цвета прямо в странице: в шапке кружки есть только на широком экране */
+.pick { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-top: 26px; }
+.pick > span { font-size: 11px; font-weight: 700; letter-spacing: .2em; text-transform: uppercase; opacity: .64; }
+.pick .swatches { justify-content: flex-start; }
+.pick .swatches button.on { box-shadow: 0 0 0 2px var(--paper), 0 0 0 4.5px var(--ink); }
+
 .h-md { font-weight: 900; font-style: italic; text-transform: uppercase; font-size: clamp(22px, 2.6vw, 38px); line-height: 1; letter-spacing: -.01em; }
 .s-head { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 20px 60px; margin-bottom: clamp(30px, 4vw, 60px); }
-.s-head > p { max-width: 30em; font-size: clamp(15px, 1.2vw, 18px); line-height: 1.55; font-weight: 500; opacity: .75; }
+.s-head > p, .s-note > p { max-width: 30em; font-size: clamp(15px, 1.2vw, 18px); line-height: 1.55; font-weight: 500; opacity: .75; }
 .s-paper { background: var(--paper); }
-.s-ink { background: var(--ink); color: #fff; }
+.s-ink { background: var(--ink); color: #fff; --plate: var(--accent); --on-plate: var(--on); }   /* на чёрном плашка всегда в цвете акцента */
 .s-ink .eyebrow { opacity: .6; }
 
 .cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
 .card { position: relative; display: flex; flex-direction: column; padding: 18px 20px 22px; border-radius: 24px; background: var(--paper); transition: transform .45s var(--ease), background .35s; }
-.card:hover { transform: translateY(-8px); background: var(--accent-hi); }
+.s-paper .card { background: #fff; }
+/* поднимается и подсвечивается только карточка-ссылка; у остальных при наведении оживает одна картинка */
+a.card:hover { transform: translateY(-8px); background: var(--accent-hi); }
 /* картинка не участвует в высоте ячейки: иначе высокие кадры растягивали её и заголовки карточек стояли вразнобой */
 .card-pic { position: relative; aspect-ratio: 1; margin-bottom: 8px; }
 .card-pic img { position: absolute; inset: 7%; width: 86%; height: 86%; object-fit: contain; transition: transform .6s var(--ease); filter: drop-shadow(0 16px 18px rgba(0, 0, 0, .16)); }
 .card:hover .card-pic img { transform: scale(1.07) rotate(-3deg); }
 .card h3 { font-weight: 900; font-style: italic; text-transform: uppercase; font-size: clamp(18px, 1.6vw, 24px); line-height: 1.05; }
 .card p { font-size: 14px; line-height: 1.5; opacity: .75; margin-top: 8px; font-weight: 500; }
-.card-tag { position: absolute; left: 18px; top: 16px; font-size: 10px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; opacity: .5; }
+.card-tag { position: absolute; left: 18px; top: 16px; font-size: 11px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; opacity: .64; }
 
 .chips { list-style: none; display: flex; flex-wrap: wrap; gap: 8px; }
 .chips li { border: 1.5px solid currentColor; border-radius: 999px; padding: 9px 16px 8px; font-size: 13px; font-weight: 700; }
@@ -52,11 +68,11 @@ body.page { background: #fff; }
 
 .duo { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .duo-box { padding: clamp(24px, 3vw, 46px); border-radius: 28px; background: var(--paper); display: flex; flex-direction: column; gap: 18px; min-height: 340px; }
-.duo-box.accent { background: var(--accent); color: var(--on); transition: background .4s, color .4s; }
+.duo-box.accent { background: var(--accent); color: var(--on); box-shadow: inset 0 0 0 2px var(--accent-edge); transition: background .4s, color .4s; }
 .duo-box ul { list-style: none; display: grid; gap: 10px; font-size: 15px; line-height: 1.45; font-weight: 500; }
 .duo-box li { padding-left: 22px; position: relative; }
 .duo-box li::before { content: ""; position: absolute; left: 0; top: .6em; width: 10px; height: 2px; background: currentColor; }
-.duo-box .dir-go { margin-top: auto; }
+.duo-box .dir-go { margin-top: auto; padding-block: 12px; margin-bottom: -12px; }   /* зона нажатия 40 px, вид прежний */
 
 .who { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0 clamp(20px, 3vw, 50px); }
 .who div { padding: 22px 0; border-top: 1px solid rgba(0, 0, 0, .16); }
@@ -67,7 +83,7 @@ body.page { background: #fff; }
 .form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .form input, .form select, .form textarea { font: inherit; font-size: 15px; padding: 16px 18px; border: 1.5px solid rgba(0, 0, 0, .2); border-radius: 14px; background: #fff; outline: none; color: var(--ink); min-width: 0; }
 .form textarea { grid-column: 1 / -1; min-height: 110px; resize: vertical; }
-.form input:focus, .form select:focus, .form textarea:focus { border-color: var(--ink); }
+.form input:focus, .form select:focus, .form textarea:focus { border-color: var(--ink); box-shadow: 0 0 0 3px rgba(13, 13, 13, .14); }
 .form button { grid-column: 1 / -1; justify-self: start; border: 0; cursor: pointer; }
 .form small { grid-column: 1 / -1; font-size: 12px; line-height: 1.5; opacity: .6; }
 
@@ -89,12 +105,18 @@ body.page { background: #fff; }
 .big-num b { display: block; font-weight: 900; font-style: italic; font-size: clamp(54px, 8vw, 130px); line-height: .9; letter-spacing: -.03em; }
 .big-num span { display: block; max-width: 17em; margin-top: 12px; font-size: 15px; line-height: 1.45; font-weight: 500; opacity: .75; }
 
-@media (max-width: 1100px) { .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } .bar .swatches { display: none; } }
-@media (max-width: 980px) {   /* на телефоне разделы остаются в шапке: строка со ссылками вместо кнопки */
+/* Шапка умещается в одну строку на любой ширине: по мере сужения уходят подпись логотипа, затем кружки цвета
+   (цвет тогда переключается в самой странице, блок .pick), затем кнопка. Раньше пункты ломались на две строки. */
+@media (max-width: 1400px) { .bar .brand span { display: none; } }
+@media (max-width: 1160px) { .bar .swatches { display: none; } }
+@media (max-width: 1100px) { .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 980px) {
   .bar { gap: 14px; padding-block: 10px; }
-  .bar .brand span, .bar .menu-cta { display: none; }
-  .bar .menu { gap: 18px; font-size: 10px; letter-spacing: .1em; white-space: nowrap; }
-  .bar .menu a:not(.menu-cta) { display: block; }
+  .bar .menu { gap: 18px; font-size: 10px; letter-spacing: .1em; }
+}
+@media (max-width: 760px) {
+  .bar .menu-cta:not([aria-current]) { display: none; }
+  .page .bar .menu-cta[aria-current] { background: none; color: var(--accent); border-radius: 0; padding: 6px 0 !important; }   /* текущий раздел (конструктор) — обычной ссылкой в ряду */
 }
 @media (max-width: 900px) {
   .ph, .duo, .ask, .who { grid-template-columns: 1fr; }
@@ -104,10 +126,14 @@ body.page { background: #fff; }
   .shots { grid-template-columns: 1fr 1fr; } .shot:first-child { grid-column: span 2; grid-row: auto; }
 }
 @media (max-width: 520px) { .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; } .card { padding: 12px 14px 16px; } .card p { display: none; } }
-/* телефон: три раздела не помещаются рядом с логотипом («Производство» обрезалось) — уходят второй строкой на всю ширину */
-@media (max-width: 440px) {
-  .bar { flex-wrap: wrap; row-gap: 2px; padding-block: 8px 6px; }
-  .bar .brand img { height: 32px; }
-  .bar .menu { flex: 1 0 100%; justify-content: space-between; gap: 8px; letter-spacing: .08em; }
+/* телефон: четыре раздела не помещаются в строку рядом с логотипом (страница становилась шире экрана) —
+   встают сеткой 2×2 справа от него. Строка ссылки 30 px — зона нажатия. */
+@media (max-width: 560px) {
+  .bar { gap: 12px; padding-block: 4px; }
+  .bar .brand img { height: 36px; }
+  .bar .menu { display: grid; grid-template-columns: auto auto; gap: 0 18px; }
+  .bar .menu a { padding: 9px 0; }
+  .bar .menu a:not(.menu-cta)::after { bottom: 5px; }
+  .page .bar .menu-cta[aria-current] { padding: 9px 0 !important; }
 }
-@media (max-width: 360px) { .card h3 { font-size: 15px; } .bar .menu { font-size: 9.5px; letter-spacing: .04em; } }
+@media (max-width: 360px) { .card { padding-inline: 10px; } .card h3 { font-size: 15px; } .ph-cta .btn { padding-inline: 22px; letter-spacing: .12em; } }

@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Соберите свой мерч — конструктор · Izum</title>
+  <meta name="description" content="Соберите макет футболки: логотип, текст и кайма на любой детали кроя, сразу в 3D и с размерами в сантиметрах.">
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="img/izum-logo.png">
+  <link rel="stylesheet" href="hero.css?v=1113p">
+  <link rel="stylesheet" href="site.css?v=1113p">
+  <link rel="stylesheet" href="pages.css?v=1113p">
+  <link rel="stylesheet" href="constructor.css?v=1113p">
+  <script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
+</head>
+<body class="page mk-page">
+  <div class="izum-line izum-line-top" aria-hidden="true"></div>
+  <header class="bar">
+    <a class="brand" href="index.html"><img src="img/izum-logo.png" alt="Izum Design &amp; Production"><span>Izum<br>Design &amp; Production</span></a>
+    <nav class="menu">
+      <a href="products.html">Продукция</a>
+      <a href="wholesale.html">Одежда оптом</a>
+      <a href="production.html">Производство</a>
+      <a class="menu-cta" href="constructor.html" aria-current="page">Конструктор</a>
+    </nav>
+  </header>
+
+  <main class="mk" id="mk">
+    <div class="mk-dropmsg" aria-hidden="true"><span>Отпустите — изображение добавится.<br>На изделии или выкройке оно встанет в это место.</span></div>
+    <section class="mk-stage" id="stage" aria-label="Изделие в 3D">
+      <div class="mk-title">
+        <p class="eyebrow">Соберите свой мерч</p>
+        <h1>Футболка</h1>
+        <div class="mk-models" id="models" aria-label="Модель"></div>
+      </div>
+      <div class="mk-views" id="views">
+        <button type="button" data-view="front" class="on">Перед</button>
+        <button type="button" data-view="back">Спинка</button>
+        <button type="button" data-view="left">Левый рукав</button>
+        <button type="button" data-view="right">Правый рукав</button>
+      </div>
+      <div class="mk-tools" id="tools3d" hidden aria-label="Управление нанесением"></div>
+      <p class="mk-hint" id="hint">Крутите изделие мышью. Нанесение можно тащить прямо по ткани. Через боковой шов оно переходит со спинки на перед. Shift + клик — выбрать несколько.</p>
+      <p class="mk-load" id="load">Загружаем модель…</p>
+    </section>
+
+    <section class="mk-pattern" aria-label="Выкройка">
+      <div class="mk-tabrow">
+        <div class="mk-tabs" id="tabs">
+          <button type="button" data-tab="all" class="on">Вся выкройка</button>
+          <button type="button" data-tab="body">Перед и спинка</button>
+          <button type="button" data-tab="sleeves">Рукава</button>
+          <button type="button" data-tab="trim">Отделка</button>
+        </div>
+        <div class="mk-hist">
+          <button type="button" id="undo" title="Отменить (Ctrl+Z)" aria-label="Отменить" disabled></button>
+          <button type="button" id="redo" title="Вернуть (Ctrl+Y)" aria-label="Вернуть" disabled></button>
+        </div>
+      </div>
+      <div class="mk-flat" id="flat"><canvas id="pat"></canvas><div class="mk-tools" id="tools2d" hidden aria-label="Управление нанесением"></div></div>
+    </section>
+
+    <aside class="mk-panel" aria-label="Настройки макета">
+      <div class="mk-group">
+        <h2>Цвет ткани</h2>
+        <div class="mk-colors" id="fabric"></div>
+      </div>
+
+      <div class="mk-group">
+        <h2>Мои изображения <b id="libCount"></b></h2>
+        <label class="mk-drop" id="drop">
+          <input type="file" id="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" multiple hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V5M7 10l5-5 5 5M5 19h14"/></svg>
+          <span><b>Загрузить изображения</b>или перетащите файлы в это окно</span>
+        </label>
+        <div class="mk-lib" id="lib"></div>
+        <p class="mk-note" id="libNote" hidden></p>
+      </div>
+
+      <div class="mk-group">
+        <h2>Добавить</h2>
+        <div class="mk-add">
+          <button type="button" class="mk-btn" id="addText">Текст</button>
+          <button type="button" class="mk-btn" id="addBand">Кайма</button>
+        </div>
+      </div>
+
+      <div class="mk-group" id="multi" hidden>
+        <h2 id="multiTitle">Выбрано</h2>
+        <div class="mk-align" id="multiAlign"></div>
+        <p class="mk-note">Выравнивание считается от детали: на разных деталях «по верху» — на одной высоте, на двух рукавах — на одном расстоянии от низа и от переда.</p>
+        <div class="mk-add"><button type="button" class="mk-btn mk-ghost" data-act="del">Удалить выбранные</button></div>
+      </div>
+
+      <div class="mk-group" id="props" hidden>
+        <h2 id="propsTitle">Нанесение</h2>
+        <label class="mk-row" data-for="text">Текст<input type="text" id="pText" maxlength="40"></label>
+        <label class="mk-row" data-for="text">Шрифт
+          <select id="pFont">
+            <option value="gotham">Gotham Black</option>
+            <option value="bold">Gotham Bold</option>
+            <option value="serif">С засечками</option>
+            <option value="impact">Impact</option>
+          </select>
+        </label>
+        <label class="mk-row" data-for="band">Узор
+          <select id="pOrn"></select>
+        </label>
+        <div class="mk-row">Деталь
+          <select id="pPiece"></select>
+        </div>
+        <label class="mk-row"><span id="pSizeName">Ширина</span><input type="range" id="pSize" min="1" max="60" step="0.1"><output id="pSizeOut"></output></label>
+        <div class="mk-row mk-wide" data-for="free">У края детали
+          <div class="mk-seg" id="pWrap">
+            <button type="button" data-wrap="1" title="Через боковой шов нанесение продолжается на соседней детали: со спинки на перед и обратно">Через шов</button>
+            <button type="button" data-wrap="" title="Нанесение остаётся только на своей детали">Обрезать</button>
+          </div>
+        </div>
+        <div class="mk-row mk-wide" id="pPairRow" hidden>Второй рукав
+          <div class="mk-seg" id="pPair">
+            <button type="button" data-pair="">Нет</button>
+            <button type="button" data-pair="align" title="Та же картинка в том же месте второго рукава">Выровнять</button>
+            <button type="button" data-pair="mirror" title="Отражённая картинка в том же месте второго рукава">Зеркало</button>
+          </div>
+          <small>Копия на втором рукаве стоит на той же высоте и так же близко к переду. Она меняется вместе с этим нанесением.</small>
+        </div>
+        <label class="mk-row" data-for="free">Поворот<input type="range" id="pRot" min="-180" max="180" step="1"><output id="pRotOut"></output></label>
+        <div class="mk-row"><span id="pInkName">Цвет</span>
+          <div class="mk-inks" id="pInk">
+            <button type="button" data-ink="">как есть</button>
+            <button type="button" data-ink="#ffffff" style="--c:#fff" title="Белый"></button>
+            <button type="button" data-ink="#0d0d0d" style="--c:#0d0d0d" title="Чёрный"></button>
+            <button type="button" data-ink="#ffd400" style="--c:#ffd400" title="Жёлтый"></button>
+            <button type="button" id="pInkOwn" class="own" title="Свой цвет" aria-label="Свой цвет нанесения"></button>
+          </div>
+        </div>
+        <p class="mk-note mk-warn" id="pFade" hidden>Изображение почти сливается с тканью. <button type="button" id="pFadeFix">Перекрасить в контрастный</button> — или выберите свой цвет заливки.</p>
+        <div class="mk-add">
+          <button type="button" class="mk-btn mk-ghost" id="pDup">Дублировать</button>
+          <button type="button" class="mk-btn mk-ghost" id="pDel">Удалить</button>
+        </div>
+      </div>
+
+      <div class="mk-group">
+        <div class="mk-head"><h2>Слои</h2><button type="button" class="mk-mini" id="clear" hidden>Очистить всё</button></div>
+        <ol class="mk-layers" id="layers"></ol>
+      </div>
+
+      <div class="mk-group mk-send">
+        <button type="button" class="btn" id="send">Отправить макет</button>
+        <button type="button" class="mk-btn mk-ghost" id="png">Скачать раскладку PNG</button>
+        <p class="mk-note">Размеры считаются по развёртке 3D-модели — перед запуском в работу менеджер сверит их с лекалами.</p>
+      </div>
+    </aside>
+  </main>
+
+  <div class="mk-picker" id="picker" hidden role="dialog" aria-label="Выбор цвета">
+    <div class="pk-sv" title="Насыщенность и яркость"><i></i></div>
+    <div class="pk-hue" title="Оттенок"><i></i></div>
+    <div class="pk-row">
+      <span class="pk-now"></span>
+      <input type="text" class="pk-hex" maxlength="7" spellcheck="false" autocomplete="off" aria-label="Код цвета">
+      <button type="button" class="pk-drop" title="Взять цвет с экрана" aria-label="Пипетка"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 6l4 4M11 9l-7 7v4h4l7-7M13 7l2-2a2.1 2.1 0 0 1 3 0l1 1a2.1 2.1 0 0 1 0 3l-2 2"/></svg></button>
+      <button type="button" class="pk-ok">Готово</button>
+    </div>
+    <div class="pk-last" hidden></div>
+  </div>
+
+  <script src="data.js?v=1113p"></script>
+  <script type="module" src="constructor.js?v=1113p"></script>
+</body>
+</html>

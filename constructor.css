@@ -1,0 +1,205 @@
+/* Конструктор макета: 3D-изделие, выкройка и панель слоёв. Тёмная сцена, как в презентации вещи. */
+.mk-page { background: #111214; color: #f1efe8; }
+.mk-page .bar { background: rgba(17, 18, 20, .88); border-bottom-color: rgba(255, 255, 255, .08); }
+.mk-page .bar .brand img { filter: invert(1) hue-rotate(180deg); }
+.mk-page .bar .menu-cta { background: var(--accent); color: #0d0d0d; }
+.mk-page .bar .menu-cta::after { display: none; }
+
+.mk { --line: rgba(255, 255, 255, .1); display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr) 330px; height: calc(100svh - 75px); min-height: 560px; }
+.mk-stage { position: relative; overflow: hidden; background: radial-gradient(circle at 50% 44%, #63666c 0, #2c2e32 46%, #17181b 82%); touch-action: none; }
+.mk-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; }
+.mk-stage canvas.drag { cursor: grabbing; }
+.mk-stage canvas.over { cursor: move; }
+.mk-title { position: absolute; left: 26px; top: 22px; z-index: 2; pointer-events: none; }
+.mk-title .eyebrow { margin-bottom: 8px; color: var(--accent); opacity: 1; }
+.mk-title h1 { font-weight: 900; font-style: italic; text-transform: uppercase; font-size: clamp(30px, 3.6vw, 58px); line-height: .92; letter-spacing: -.02em; }
+.mk-views { position: absolute; left: 50%; bottom: 18px; z-index: 2; transform: translateX(-50%); display: flex; gap: 4px; padding: 4px; border-radius: 999px; background: rgba(12, 12, 13, .62); backdrop-filter: blur(10px); }
+.mk-views button, .mk-tabs button, .mk-models button { font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; padding: 9px 13px 8px; border-radius: 999px; white-space: nowrap; color: rgba(241, 239, 232, .7); transition: background .2s, color .2s; }
+.mk-views button:hover, .mk-tabs button:hover, .mk-models button:hover { color: #fff; }
+.mk-views button.on, .mk-tabs button.on, .mk-models button.on { background: var(--accent); color: #0d0d0d; }
+.mk-hint { position: absolute; right: 22px; top: 26px; z-index: 2; max-width: 250px; font-size: 11px; line-height: 1.45; text-align: right; opacity: .55; pointer-events: none; }
+.mk-load { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; opacity: .7; }
+
+.mk-pattern { display: flex; flex-direction: column; min-width: 0; background: #1d1e22; border-left: 1px solid var(--line); }
+.mk-tabs { display: flex; gap: 4px; padding: 12px 14px; overflow-x: auto; border-bottom: 1px solid var(--line); scrollbar-width: none; }
+.mk-flat { position: relative; flex: 1; min-height: 0; touch-action: none; }
+.mk-flat canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+.mk-panel { overflow-y: auto; padding: 6px 20px 26px; background: #151618; border-left: 1px solid var(--line); scrollbar-width: thin; scrollbar-color: #3a3b40 transparent; }
+.mk-group { padding: 16px 0 18px; border-bottom: 1px solid var(--line); }
+.mk-group:last-child { border-bottom: 0; }
+.mk-group h2 { font-size: 10px; font-weight: 700; letter-spacing: .2em; text-transform: uppercase; opacity: .5; margin-bottom: 12px; }
+.mk-colors { display: flex; flex-wrap: wrap; gap: 8px; }
+.mk-colors button { width: 26px; height: 26px; border-radius: 50%; background: var(--c); border: 1.5px solid rgba(255, 255, 255, .22); transition: transform .2s var(--ease); }
+.mk-colors button:hover { transform: scale(1.14); }
+.mk-colors button.on { box-shadow: 0 0 0 2px #151618, 0 0 0 4px var(--accent); }
+.mk-add { display: flex; flex-wrap: wrap; gap: 8px; }
+.mk-group h2 b { margin-left: 6px; color: var(--accent); }
+.mk-drop { display: flex; align-items: center; gap: 12px; padding: 14px 14px; border-radius: 14px; border: 1.5px dashed rgba(255, 255, 255, .28); cursor: pointer; transition: border-color .2s, background .2s; }
+.mk-drop:hover { border-color: var(--accent); background: rgba(255, 255, 255, .04); }
+.mk-drop svg { flex: none; width: 26px; height: 26px; fill: none; stroke: var(--accent); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.mk-drop span { font-size: 11px; line-height: 1.45; opacity: .9; }
+.mk-drop span b { display: block; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; }
+.mk-lib { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 10px; }
+.mk-lib:empty { display: none; }
+.mk-thumb { position: relative; aspect-ratio: 1; border-radius: 10px; cursor: grab; border: 1px solid rgba(255, 255, 255, .12); background: #2a2b30 conic-gradient(#33353b 25%, #25262a 0 50%, #33353b 0 75%, #25262a 0) 0 0 / 14px 14px; transition: transform .2s var(--ease), border-color .2s; }
+.mk-thumb:hover { transform: translateY(-2px); border-color: var(--accent); }
+.mk-thumb img { position: absolute; inset: 5px; width: calc(100% - 10px); height: calc(100% - 10px); object-fit: contain; pointer-events: none; }
+.mk-thumb button { position: absolute; right: -6px; top: -6px; display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: #f1efe8; color: #0d0d0d; box-shadow: 0 2px 6px rgba(0, 0, 0, .5); transition: background .15s, color .15s, transform .15s; }
+.mk-thumb button svg { width: 11px; height: 11px; stroke-width: 3; }
+.mk-thumb button:hover { background: #e3262d; color: #fff; transform: scale(1.15); }
+.mk-thumb i { position: absolute; left: -4px; bottom: -4px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: var(--accent); color: #0d0d0d; font: 700 10px/16px "Gotham Pro", Arial, sans-serif; text-align: center; }
+#libNote { margin-top: 10px; }
+.mk { position: relative; }
+.mk-dropmsg { position: absolute; inset: 10px; z-index: 40; display: none; align-items: center; justify-content: center; border-radius: 22px; border: 2.5px dashed var(--accent); background: rgba(17, 18, 20, .55); pointer-events: none; text-align: center; }
+.mk-dropmsg span { font-size: 13px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; line-height: 1.7; color: var(--accent); background: rgba(12, 12, 13, .85); padding: 16px 24px; border-radius: 16px; }
+.mk.dropping .mk-dropmsg { display: flex; }
+.mk-btn { display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; padding: 11px 15px 10px; border-radius: 999px; background: #f1efe8; color: #0d0d0d; cursor: pointer; transition: transform .2s, background .2s; }
+.mk-btn:hover { transform: translateY(-2px); background: var(--accent); }
+.mk-ghost { background: transparent; color: #f1efe8; box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .28); }
+.mk-ghost:hover { color: #0d0d0d; box-shadow: none; }
+.mk-row { display: grid; grid-template-columns: 74px minmax(0, 1fr) auto; align-items: center; gap: 10px; font-size: 12px; margin-bottom: 11px; }
+.mk-row[hidden] { display: none; }
+.mk-row input[type="text"], .mk-row select { grid-column: 2 / 4; width: 100%; font: inherit; color: #f1efe8; background: #222327; border: 1px solid rgba(255, 255, 255, .14); border-radius: 8px; padding: 8px 10px; }
+.mk-row input[type="range"] { width: 100%; accent-color: var(--accent); }
+.mk-row output { min-width: 58px; text-align: right; font-variant-numeric: tabular-nums; opacity: .8; }
+.mk-inks { grid-column: 2 / 4; display: flex; align-items: center; gap: 7px; }
+.mk-inks button { height: 24px; min-width: 24px; border-radius: 999px; background: var(--c, transparent); border: 1.5px solid rgba(255, 255, 255, .25); font-size: 10px; padding: 0 9px; }
+.mk-inks button[style] { padding: 0; }
+.mk-inks button.on { box-shadow: 0 0 0 2px #151618, 0 0 0 4px var(--accent); }
+/* «свой цвет»: радужный кружок, после выбора — выбранный цвет в радужной кайме */
+.mk-colors .own, .mk-inks .own { background: conic-gradient(#ff3b30, #ffcc00, #34c759, #32ade6, #5856d6, #ff2d92, #ff3b30); }
+.mk-colors .own.set, .mk-inks .own.set { background: radial-gradient(circle, var(--c) 0 54%, transparent 57%), conic-gradient(#ff3b30, #ffcc00, #34c759, #32ade6, #5856d6, #ff2d92, #ff3b30); }
+.mk-inks .own { padding: 0; }
+
+.mk-picker { position: fixed; z-index: 120; width: 266px; padding: 12px; border-radius: 16px; background: #1b1c20; border: 1px solid rgba(255, 255, 255, .16); box-shadow: 0 18px 50px rgba(0, 0, 0, .6); color: #f1efe8; touch-action: none; }
+.mk-picker[hidden] { display: none; }
+.pk-sv { position: relative; height: 140px; border-radius: 10px; cursor: crosshair; background: linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, transparent), var(--hue, #f00); }
+.pk-hue { position: relative; height: 14px; margin-top: 12px; border-radius: 999px; cursor: ew-resize; background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00); }
+.pk-sv i, .pk-hue i { position: absolute; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%; border: 2.5px solid #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, .55), 0 2px 6px rgba(0, 0, 0, .5); pointer-events: none; }
+.pk-hue i { top: 50%; background: transparent; }
+.pk-row { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+.pk-now { flex: none; width: 28px; height: 28px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, .25); }
+.pk-hex { flex: 1; min-width: 84px; font: 700 12px/1 "Gotham Pro", Arial, sans-serif; letter-spacing: .06em; color: #f1efe8; background: #26272c; border: 1px solid rgba(255, 255, 255, .14); border-radius: 8px; padding: 8px 9px; }
+.pk-drop { flex: none; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; background: #26272c; }
+.pk-drop[hidden] { display: none; }
+.pk-drop:hover { background: var(--accent); color: #0d0d0d; }
+.pk-drop svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.pk-ok { flex: none; font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; padding: 9px 11px 8px; border-radius: 999px; background: var(--accent); color: #0d0d0d; }
+.pk-last { display: flex; gap: 6px; margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, .1); }
+.pk-last[hidden] { display: none; }
+.pk-last button { width: 20px; height: 20px; border-radius: 50%; background: var(--c); border: 1.5px solid rgba(255, 255, 255, .25); }
+.pk-last button:hover { transform: scale(1.18); }
+.mk-layers { list-style: none; display: grid; gap: 6px; }
+.mk-layers li { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 6px 6px 6px 7px; border-radius: 10px; background: #1f2024; font-size: 12px; cursor: pointer; border: 1px solid transparent; }
+.mk-layers li.on { border-color: var(--accent); }
+.mk-layers .lt { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 7px; overflow: hidden; font-size: 11px; font-weight: 900; font-style: italic; background: #2a2b30 conic-gradient(#33353b 25%, #25262a 0 50%, #33353b 0 75%, #25262a 0) 0 0 / 10px 10px; }
+.mk-layers .lt img { width: 100%; height: 100%; object-fit: contain; }
+.mk-layers .ln b, .mk-layers .ln small { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mk-layers .ln b { font-weight: 700; }
+.mk-layers .ln small { margin-top: 2px; font-size: 10px; opacity: .55; font-variant-numeric: tabular-nums; }
+.mk-layers li.off .lt, .mk-layers li.off .ln { opacity: .35; }
+.mk-layers .lb { display: flex; }
+.mk-layers .lb button { display: grid; place-items: center; width: 25px; height: 25px; border-radius: 50%; opacity: .6; transition: opacity .15s, background .15s; }
+.mk-layers .lb button:hover { opacity: 1; background: rgba(255, 255, 255, .13); }
+.mk-layers .lb button[data-act="del"]:hover { background: #e3262d; color: #fff; }
+.mk-layers .lb button:disabled { opacity: .16; pointer-events: none; }
+.mk-layers .lb svg { width: 14px; height: 14px; }
+.mk-layers .empty { display: block; background: none; opacity: .5; cursor: default; padding-left: 0; }
+.mk-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12px; }
+.mk-head h2 { margin: 0; }
+.mk-mini { font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; opacity: .7; border-bottom: 1px solid currentColor; padding-bottom: 1px; }
+.mk-mini:hover { opacity: 1; color: var(--accent); }
+.mk-mini[hidden] { display: none; }
+
+/* второй рукав и выравнивание нескольких */
+.mk-wide { grid-template-columns: 1fr; gap: 8px; }
+.mk-wide small { font-size: 10.5px; line-height: 1.45; opacity: .5; }
+.mk-seg { display: flex; gap: 3px; padding: 3px; border-radius: 999px; background: #222327; }
+.mk-seg button { flex: 1; font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; padding: 8px 4px 7px; border-radius: 999px; opacity: .7; transition: background .15s, color .15s, opacity .15s; }
+.mk-seg button:hover { opacity: 1; }
+.mk-seg button.on { background: var(--accent); color: #0d0d0d; opacity: 1; }
+.mk-align { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 12px; }
+.mk-align button { display: grid; place-items: center; height: 40px; border-radius: 10px; background: #222327; transition: background .15s, color .15s; }
+.mk-align button:hover { background: var(--accent); color: #0d0d0d; }
+.mk-align button:disabled { opacity: .25; pointer-events: none; }
+.mk-align svg { width: 20px; height: 20px; }
+#multi .mk-note { margin-bottom: 12px; }
+.mk-tools button.on { background: var(--accent); color: #0d0d0d; }
+.mk-layers { user-select: none; }
+
+/* кнопки управления: общий рисунок значков */
+.mk-tools svg, .mk-hist svg, .mk-align svg, .mk-layers .lb svg, .mk-thumb button svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.mk-tools { display: flex; align-items: center; gap: 2px; padding: 4px; border-radius: 999px; background: rgba(12, 12, 13, .88); border: 1px solid rgba(255, 255, 255, .14); box-shadow: 0 8px 26px rgba(0, 0, 0, .45); backdrop-filter: blur(10px); z-index: 4; }
+.mk-tools[hidden] { display: none; }
+.mk-tools button { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; color: #f1efe8; transition: background .15s, color .15s; }
+.mk-tools button:hover { background: var(--accent); color: #0d0d0d; }
+.mk-tools button[data-act="del"] { color: #ff6b6b; }
+.mk-tools button[data-act="del"]:hover { background: #e3262d; color: #fff; }
+.mk-tools svg { width: 17px; height: 17px; }
+.mk-tools span { max-width: 130px; padding: 0 8px 0 12px; font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: .7; }
+#tools3d { position: absolute; left: 50%; bottom: 68px; transform: translateX(-50%); }
+#tools2d { position: absolute; left: 0; top: 0; }
+.mk-tabrow { display: flex; align-items: center; border-bottom: 1px solid var(--line); }
+.mk-tabrow .mk-tabs { flex: 1; min-width: 0; border-bottom: 0; }
+.mk-hist { display: flex; gap: 2px; padding: 0 12px 0 4px; }
+.mk-hist button { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; color: #f1efe8; transition: background .15s, color .15s; }
+.mk-hist button:hover { background: var(--accent); color: #0d0d0d; }
+.mk-hist button:disabled { opacity: .22; pointer-events: none; }
+.mk-hist svg { width: 18px; height: 18px; }
+.mk-send { display: grid; gap: 10px; justify-items: start; }
+.mk-send .btn { background: var(--accent); color: #0d0d0d; padding: 16px 26px 15px; }
+.mk-note { font-size: 11px; line-height: 1.5; opacity: .5; }
+
+@media (max-width: 1180px) {
+  .mk { grid-template-columns: minmax(0, 1fr) 320px; grid-template-rows: minmax(0, 1.2fr) minmax(0, 1fr); }
+  .mk-stage { grid-column: 1; grid-row: 1; }
+  .mk-pattern { grid-column: 1; grid-row: 2; border-left: 0; border-top: 1px solid var(--line); }
+  .mk-panel { grid-column: 2; grid-row: 1 / 3; }
+}
+@media (max-width: 760px) {
+  .mk { display: block; height: auto; }
+  .mk-stage { height: 58svh; min-height: 380px; }
+  .mk-pattern { height: 56svh; min-height: 340px; border-top: 1px solid var(--line); }
+  .mk-panel { border-left: 0; border-top: 1px solid var(--line); }
+  .mk-hint { display: none; }
+  .mk-tools span { display: none; }
+  .mk-tools button { width: 30px; height: 30px; }
+  .mk-views { max-width: calc(100% - 20px); overflow-x: auto; scrollbar-width: none; }
+  .mk-page .bar .menu a:not(.menu-cta) { display: none; }
+}
+
+.mk-models { display: inline-flex; gap: 4px; margin-top: 14px; padding: 4px; border-radius: 999px; background: rgba(12, 12, 13, .55); backdrop-filter: blur(10px); pointer-events: auto; }
+
+/* ---------- правки по аудиту вёрстки, 13.11 (отдельным блоком, чтобы не задевать остальное) ---------- */
+/* Вкладки выкройки: не помещаются — переносятся на вторую строку. Раньше «Отделка» уезжала за край,
+   а прокрутка строки ничем не была обозначена. */
+.mk-tabs { flex-wrap: wrap; overflow-x: visible; }
+/* Подсказка не наезжает на заголовок: на узкой сцене она встаёт ниже заголовка, справа от переключателя модели. */
+.mk-stage { container-type: inline-size; }
+.mk-hint { opacity: .72; }
+@container (max-width: 700px) {
+  .mk-hint { top: calc(59px + clamp(30px, 3.6vw, 58px) * .92); max-width: min(250px, calc(100% - 262px)); }
+}
+/* Телефон: разделы сайта остаются в шапке (сетка 2×2, pages.css). */
+@media (max-width: 760px) {
+  .mk-page .bar .menu a:not(.menu-cta) { display: block; }
+}
+/* Сенсорный экран: зоны нажатия крупнее. */
+@media (hover: none), (max-width: 760px) {
+  .mk-views button, .mk-tabs button, .mk-models button { padding: 12px 13px 11px; }
+  .mk-colors button { width: 32px; height: 32px; }
+  .mk-btn { padding: 13px 16px 12px; }
+}
+/* Узкий телефон: четыре вида не помещаются в строку («Правый рукав» обрезался) — сетка 2×2;
+   панель выбранного нанесения поднимается над ней. */
+@media (max-width: 440px) {
+  .mk-views { display: grid; grid-template-columns: auto auto; overflow: visible; border-radius: 22px; }
+  .mk-views button { text-align: center; }
+  #tools3d { bottom: 112px; }
+}
+
+/* подсказка: картинка сливается с тканью */
+.mk-warn { margin: 0 0 12px; padding: 10px 12px; border-radius: 10px; background: rgba(255, 212, 0, .1); color: #ffd400; opacity: 1; }
+.mk-warn[hidden] { display: none; }
+.mk-warn button { font: inherit; font-weight: 700; color: #0d0d0d; background: #ffd400; border-radius: 999px; padding: 2px 9px 1px; }

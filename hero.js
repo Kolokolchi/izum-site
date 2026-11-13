@@ -21,6 +21,8 @@
   const $ = (id) => document.getElementById(id);
   const app = $("app"), stage = $("stage");
   const pedTop = document.querySelector(".pedestal-top"), pedBottom = document.querySelector(".pedestal-bottom");
+  const topBar = document.querySelector(".top"), caption = document.querySelector(".caption"), floor = document.querySelector(".floor");
+  const PED_UP = 0.92, PED_DOWN = 0.74;   // верхний и нижний подиум: доли размера вещи вверх и вниз от центра очереди
 
   const S = {
     pos: 0, target: 0,      // позиция очереди (дробная) и цель
@@ -382,10 +384,19 @@ void main() {
     const rgb = hexRgb(c.hex);
     const lum = (0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]) / 255;
     S.color = { ...c, t: rgb.map((v) => v / 255), lum };
+    // Текст поверх акцента — тот из двух (чёрный или белый), у которого выше контраст по WCAG. Прежний порог
+    // яркости давал белый текст на оранжевом, розовом и зелёном с контрастом 2,9–3,4 при норме 4,5.
+    const lin = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+    const rl = 0.2126 * lin(rgb[0]) + 0.7152 * lin(rgb[1]) + 0.0722 * lin(rgb[2]);
+    const darkOn = (rl + 0.05) / 0.0537 > 1.05 / (rl + 0.05);     // 0.0537 — яркость #0d0d0d + 0.05
+    const pale = 1.05 / (rl + 0.05) < 1.25;                       // почти белый акцент не виден на светлой странице
     const st = document.documentElement.style;
     st.setProperty("--accent", c.hex);
     st.setProperty("--accent-hi", mixHex(rgb, 0.3));
-    st.setProperty("--on", lum > 0.55 ? "#0d0d0d" : "#ffffff");
+    st.setProperty("--on", darkOn ? "#0d0d0d" : "#ffffff");
+    st.setProperty("--accent-edge", pale ? "#0d0d0d" : "transparent");      // контур акцентных карточек
+    st.setProperty("--plate", pale ? "#0d0d0d" : c.hex);                    // плашка под словом в заголовках
+    st.setProperty("--on-plate", pale ? "#ffffff" : darkOn ? "#0d0d0d" : "#ffffff");
     st.setProperty("--accent-ink", lum < 0.3 ? mixHex(rgb, 0.38) : c.hex);
     // сцена презентации: тёмный тон цвета вещи — на нём вещь читается, а не сливается с заливкой
     const tone = (k, add) => "#" + rgb.map((v) => Math.round(v * k + add).toString(16).padStart(2, "0")).join("");
@@ -397,7 +408,7 @@ void main() {
     st.setProperty("--glow-2", `rgba(${soft}, .16)`);
     st.setProperty("--glow-d", `rgba(${soft}, .78)`);
     st.setProperty("--glow-d2", `rgba(${soft}, .36)`);
-    app.dataset.on = lum > 0.55 ? "dark" : "light";
+    app.dataset.on = darkOn ? "dark" : "light";
     document.querySelectorAll("[data-swatches] button").forEach((b) => b.classList.toggle("on", b.dataset.id === c.id));
     try { localStorage.setItem("izum-color", c.id); } catch (e) { /* хранилище недоступно — не страшно */ }
   }
@@ -648,6 +659,17 @@ void main() {
     S.W = app.clientWidth; S.H = app.clientHeight;
     S.mobile = S.W <= 820;
     S.size = S.mobile ? Math.min(S.W * 0.44, S.H * 0.28) : Math.min(S.H * 0.3, S.W * 0.2);
+    // Сцена очереди (от верхнего подиума до нижнего) должна поместиться между шапкой и подписью. Раньше она
+    // считалась только долями высоты окна: на невысоком окне ноутбука нижний подиум ложился на подпись,
+    // на невысоком телефоне верхний заходил в меню. Если места хватает, размер и центр остаются прежними.
+    const box = app.getBoundingClientRect();
+    const head = topBar.getBoundingClientRect().bottom - box.top, cap = caption.getBoundingClientRect().top - box.top;
+    const pedH = Math.min(S.W, S.H) * 0.046, padTop = 8, padBottom = 12;
+    const room = cap - head - pedH - padTop - padBottom;
+    if (room > 60) S.size = Math.min(S.size, room / (PED_UP + PED_DOWN));
+    S.cy = S.H * 0.44;
+    const lo = head + padTop + S.size * PED_UP, hi = cap - padBottom - pedH - S.size * PED_DOWN;
+    if (room > 60 && lo <= hi) S.cy = clamp(S.cy, lo, hi);
     S.R = S.size / STEP * (S.mobile ? 1.15 : 1.02);
     const boxW = S.mobile ? S.W * 0.66 : S.W * 0.4;
     const boxH = S.mobile ? S.H * 0.23 : S.H * 0.62;
@@ -673,9 +695,12 @@ void main() {
         }
       }
     });
-    const cy = S.H * 0.44;
-    pedTop.style.top = cy - S.size * 0.92 + "px";
-    pedBottom.style.top = cy + S.size * 0.74 + "px";
+    pedTop.style.top = S.cy - S.size * PED_UP + "px";
+    pedBottom.style.top = S.cy + S.size * PED_DOWN + "px";
+    // линия пола держится под нижним подиумом; при обычной раскладке это прежние 28 % высоты
+    const moved = Math.abs(S.cy - S.H * 0.44) > 1 || S.size < (S.mobile ? Math.min(S.W * 0.44, S.H * 0.28) : Math.min(S.H * 0.3, S.W * 0.2)) - 1;
+    floor.style.height = moved ? Math.max(0, S.H - (S.cy + S.size * PED_DOWN + pedH + S.H * 0.012)) + "px" : "";
+    stage.style.perspectiveOrigin = moved ? `50% ${(S.cy / S.H) * 100}%` : "";
   }
 
   // ---------- кадр ----------
@@ -693,7 +718,7 @@ void main() {
 
     const heroX = S.mobile ? 0 : W * 0.19;
     const heroY = S.mobile ? -H * 0.285 : H * 0.03;
-    const baseY = -H * 0.06;
+    const baseY = S.cy - H / 2;      // центр очереди: 44 % высоты, если layout() не сдвинул его под шапку и подпись
 
     for (let i = 0; i < N; i++) {
       const n = nodes[i];
@@ -930,9 +955,10 @@ void main() {
     const how = (!C.src ? (ornName || "без нанесения") : (C.mode === "pattern" ? "паттерн" : "логотип" + (where ? ": " + where : "")) + (ornName ? ", " + ornName : ""));
     $("leadSum").textContent = `${it.name} · ${S.color.name.toLowerCase()} · ${how}`;
     order.hidden = false;
-    order.querySelector("input").focus();
+    document.documentElement.style.overflow = "hidden";   // страница под окном не прокручивается
+    order.querySelector("input").focus({ preventScroll: true });
   }
-  const closeOrder = () => { order.hidden = true; };
+  const closeOrder = () => { order.hidden = true; document.documentElement.style.overflow = ""; };
   $("leadBtn").addEventListener("click", openOrder);
   $("leadX").addEventListener("click", closeOrder);
   order.addEventListener("pointerdown", (ev) => { if (ev.target === order) closeOrder(); });
@@ -1157,6 +1183,10 @@ void main() {
     S.target = Math.round(S.target) + 1; autoAt = now + AUTO_STEP;
   }, 300);
   window.addEventListener("resize", layout);
+  if ("ResizeObserver" in window) {   // шапка или подпись изменили высоту (догрузился шрифт, перестроилось меню) — сцена вписывается заново
+    const ro = new ResizeObserver(() => layout());
+    ro.observe(topBar); ro.observe(caption);
+  }
 
   let saved = null;
   try { saved = localStorage.getItem("izum-color"); } catch (e) { /* нет доступа к хранилищу */ }

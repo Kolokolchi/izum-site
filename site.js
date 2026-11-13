@@ -36,18 +36,32 @@
     t.img.src = cv.toDataURL("image/png");
   }
   tinted.forEach((t) => {
-    const base = new Image();
-    base.onload = () => { t.base = base; tint(t); };
-    base.src = t.src;
+    // Исходник для перекраски берём после загрузки самой картинки: у карточек ниже экрана стоит loading="lazy",
+    // и отдельный запрос отсюда заставил бы грузить их все сразу.
+    const start = () => {
+      const base = new Image();
+      base.onload = () => { t.base = base; tint(t); };
+      base.src = t.src;
+    };
+    if (t.img.complete && t.img.naturalWidth) start();
+    else t.img.addEventListener("load", start, { once: true });
   });
 
   function setColor(id) {
     color = COLORS.find((c) => c.id === id) || COLORS[0];
     const rgb = hexRgb(color.hex), lum = (0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]) / 255;
+    // Как в hero.js: текст поверх акцента — чёрный или белый, у кого выше контраст по WCAG;
+    // почти белый акцент не виден на светлой странице — ему нужен контур, а плашке в заголовках — чёрный фон.
+    const lin = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+    const rl = 0.2126 * lin(rgb[0]) + 0.7152 * lin(rgb[1]) + 0.0722 * lin(rgb[2]);
+    const darkOn = (rl + 0.05) / 0.0537 > 1.05 / (rl + 0.05), pale = 1.05 / (rl + 0.05) < 1.25;
     const st = document.documentElement.style;
     st.setProperty("--accent", color.hex);
     st.setProperty("--accent-hi", mixHex(rgb, 0.3));
-    st.setProperty("--on", lum > 0.55 ? "#0d0d0d" : "#ffffff");
+    st.setProperty("--on", darkOn ? "#0d0d0d" : "#ffffff");
+    st.setProperty("--accent-edge", pale ? "#0d0d0d" : "transparent");
+    st.setProperty("--plate", pale ? "#0d0d0d" : color.hex);
+    st.setProperty("--on-plate", pale ? "#ffffff" : darkOn ? "#0d0d0d" : "#ffffff");
     st.setProperty("--accent-ink", lum < 0.3 ? mixHex(rgb, 0.38) : color.hex);
     document.querySelectorAll("[data-swatches] button").forEach((b) => b.classList.toggle("on", b.dataset.id === color.id));
     try { localStorage.setItem("izum-color", color.id); } catch (e) { /* хранилище недоступно */ }
@@ -61,9 +75,14 @@
   try { saved = localStorage.getItem("izum-color"); } catch (e) { /* нет доступа */ }
   setColor(saved || COLORS[0].id);
 
-  // появление блоков
+  // Появление блоков. Блоки спрятаны, только пока на <html> стоит класс js (его ставит строка в <head>), а если
+  // этот скрипт задержался, CSS через 3 с показывает их сам (pages.css, rev-late) — страница не остаётся пустой.
+  // Класс rev-on отключает этот запасной показ; пришли после него — показываем всё сразу, без повторного скрытия.
   const rev = document.querySelectorAll("[data-rev]");
-  if ("IntersectionObserver" in window) {
+  const late = performance.now() > 2800;
+  document.documentElement.classList.add("rev-on");
+  if (late) rev.forEach((el) => el.classList.add("in"));
+  else if ("IntersectionObserver" in window) {
     const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } }), { rootMargin: "0px 0px -8% 0px" });
     rev.forEach((el) => io.observe(el));
   } else rev.forEach((el) => el.classList.add("in"));
