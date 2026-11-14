@@ -1,14 +1,19 @@
-// Конструктор макета. Модели изделий развёрнуты по выкройке (tools/build_model.py из FBX), поэтому одна и та же
+// Конструктор макета. Развёртка 3D-модели переложена на лекала (tools/build_model.py, tools/pattern.py), поэтому одна и та же
 // картинка — «текстура» — рисуется на плоских деталях кроя и сразу ложится на 3D-модель.
-// Все размеры слоёв хранятся в сантиметрах выкройки: x, y — центр слоя (y вниз от верха листа), w, h — размер.
+// Все размеры слоёв хранятся в сантиметрах листа лекал: x, y — центр слоя (y вниз от верха листа), w, h — размер.
 // Слой принадлежит одной детали и обрезается её контуром.
+// У изделия несколько размеров (S…XXXL). 3D-модель одна — базового размера, её развёртка и есть текстура. У остальных
+// размеров свой лист лекал; деталь такого листа переносится на текстуру растяжением по ширине и высоте (ax, bx, ay, by),
+// а сама модель на столько же растягивается в сцене — нанесение на ней остаётся в своих пропорциях.
 import * as THREE from "three";
 import { OrbitControls } from "./vendor/OrbitControls.js";
 import { GLTFLoader } from "./vendor/GLTFLoader.js";
+import { seamPairs } from "./seams.js?v=1114i";
 
 const WHATSAPP = "77771737475";
 const $ = (id) => document.getElementById(id);
-const fmt = (v) => (Math.round(v * 10) / 10).toString().replace(".", ",");
+// Размеры хранятся в сантиметрах листа, а показываются в миллиметрах — так их читают на производстве.
+const mm = (v) => Math.round(v * 10);
 const MOBILE = matchMedia("(max-width: 760px)").matches;
 
 const FABRICS = [{ id: "black", name: "Чёрный", hex: "#151516" }, { id: "graphite", name: "Графит", hex: "#4a4d52" },
@@ -43,8 +48,31 @@ const ORNS = {
 };
 const KIND = { img: "Логотип", text: "Текст", band: "Кайма" };
 
-const MODELS = [{ id: "tee_male", name: "Мужская" }, { id: "tee_female", name: "Женская" }];
-const S = { fabric: FABRICS[0], layers: [], sel: null, picks: [], tab: "all", pieces: [], A: 100, H: 0.6, model: null, seq: 1 };
+// Четыре футболки (решение пользователя 14.11.2026: «Первые 2 оставим… Пусть будет 4 майки… разные названия им дать»).
+// Basic — модели KOFOTI с CONNECT с настоящим раскроем: md/export/tee_men_clo.fbx и tee_women_long.fbx (у женской низ опущен на 18 см).
+// Худи, свитшот, поло и бомбер — изделия, собранные в Marvelous Designer по чертежам md/garments (tools/build_model_md.py):
+// детали названы по чертежу; размерный ряд S–XXXL и лекала считает tools/pattern_md.py из того же чертежа, сама 3D-модель —
+// одного размера (мужская L, женская M) и на остальных размерах растягивается.
+// В каждом изделии сначала мужская модель, потом женская — по этому порядку выбирается модель при смене изделия.
+const PRODUCTS = [
+  { id: "tee", name: "Футболка", models: [{ id: "tee_male", name: "Мужская" }, { id: "tee_female", name: "Женская" },
+    { id: "tee_male_basic", name: "Мужская Basic" }, { id: "tee_female_basic", name: "Женская Basic" }] },
+  { id: "hoodie", name: "Худи", models: [{ id: "hoodie_male", name: "Мужское" }, { id: "hoodie_female", name: "Женское" }] },
+  { id: "sweatshirt", name: "Свитшот", models: [{ id: "sweatshirt_male", name: "Мужской" }, { id: "sweatshirt_female", name: "Женский" }] },
+  { id: "polo", name: "Поло", models: [{ id: "polo_male", name: "Мужское" }, { id: "polo_female", name: "Женское" }] },
+  { id: "bomber", name: "Бомбер", models: [{ id: "bomber_male", name: "Мужской" }, { id: "bomber_female", name: "Женский" }] },
+  // Кепка и шопер — готовые модели с CONNECT (tools/build_model_clo.py): одна модель, один размер, лекал нет.
+  // tabs / views — свои подписи вкладок выкройки и видов (рукавов у них нет), note — подпись под кнопкой отправки.
+  { id: "cap", name: "Кепка", models: [{ id: "cap", name: "Кепка" }],
+    tabs: { body: "Клинья", parts: "Козырёк", trim: "Ремешки" }, views: { back: "Сзади", left: "Слева", right: "Справа" },
+    note: "Кепка одного размера, с регулируемой застёжкой сзади. Лекала под раскрой для неё не подключены." },
+  { id: "tote", name: "Шопер", models: [{ id: "tote", name: "Шопер" }],
+    tabs: { body: "Полотна", parts: "Дно", trim: "Ручки и кайма" }, views: { back: "Сзади", left: "Слева", right: "Справа" },
+    note: "Шопер одного размера: полотно 46 × 31 см, ручки шириной 2 см. Лекала под раскрой для него не подключены." },
+];
+PRODUCTS.forEach((p) => p.models.forEach((m) => { m.prod = p; }));
+const MODELS = PRODUCTS.flatMap((p) => p.models);
+const S = { fabric: FABRICS[0], layers: [], sel: null, picks: [], tab: "all", pieces: [], A: 100, H: 0.6, model: null, size: "", sizes: [], k3: [1, 1], seq: 1 };
 let dirty = true;          // перерисовать 3D
 let model = null;
 
@@ -59,18 +87,19 @@ function inPoly(x, y, o) {
   return c;
 }
 const pieceAt = (x, y) => S.pieces.find((p) => x >= p.x0 && x <= p.x1 && y >= p.y0 && y <= p.y1 && inPoly(x, y, p.o));
-// точка развёртки модели -> точка листа: зеркально развёрнутая деталь на листе лежит «как снаружи»
+// точка текстуры (развёртки модели) -> точка листа лекал выбранного размера
 function fromUV(x, y) {
-  const p = S.pieces.find((q) => x >= q.x0 && x <= q.x1 && y >= q.y0 && y <= q.y1 && inPoly(x, y, q.raw));
-  return p && p.mir ? [p.x0 + p.x1 - x, y] : [x, y];
+  const p = S.pieces.find((q) => x >= q.t.x0 && x <= q.t.x1 && y >= q.t.y0 && y <= q.t.y1 && inPoly(x, y, q.t.o));
+  return p ? [(x - p.bx) / p.ax, (y - p.by) / p.ay] : [x, y];
 }
 // низ рукава на листе и в какую сторону от него уходит деталь
 const hemY = (p) => (p.hem === "top" ? p.y0 : p.y1), hemS = (p) => (p.hem === "top" ? -1 : 1);
-function tracePiece(g, p) {
+function tracePath(g, o) {
   g.beginPath();
-  p.o.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y)));
+  o.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y)));
   g.closePath();
 }
+const tracePiece = (g, p) => tracePath(g, p.o);
 
 // ---------- слои ----------
 const tileCache = new Map();
@@ -132,46 +161,231 @@ function defaultInk() { return lum(S.fabric.hex) > 0.55 ? "#0d0d0d" : "#ffffff";
 function lum(hex) { const [r, g, b] = [1, 3, 5].map((p) => parseInt(hex.slice(p, p + 2), 16)); return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255; }
 
 // ---------- переход через шов ----------
-// У детали есть швы: пары точек «здесь на этой детали — там на соседней» (из модели, см. tools/build_model.py).
-// Если рамка слоя задевает шов, слой дорисовывается на соседней детали ПО РАСКРОЮ: тем же сдвигом, каким точка шва
-// под слоем переходит на соседнюю деталь, и без поворота — надпись идёт так же ровно, как лежат детали на листе.
-// Так переходить можно только через швы, по которым детали на листе смотрят друг на друга: боковые (перед — спинка)
-// и нижний шов рукава. У проймы и плеча края развёрнуты друг к другу на 30–160°: сдвиг без поворота там кладёт
-// копию нанесения внутрь соседней детали, а с поворотом надпись уходит под углом (пользователь это отверг).
-// Поэтому при загрузке модели в p.seams остаются только «ровные» швы (seamTurn), у остальных нанесение обрезается.
-function seamTurn(P) {                      // наибольший местный разворот соседней детали вдоль шва, в радианах
-  let worst = 0;
-  for (const c of P) {
-    const use = P.filter((r) => Math.hypot(r[0] - c[0], r[1] - c[1]) < 3);
-    if (use.length < 3) continue;
-    let ax = 0, ay = 0, bx = 0, by = 0, dot = 0, crs = 0;
-    use.forEach((r) => { ax += r[0]; ay += r[1]; bx += r[2]; by += r[3]; });
-    ax /= use.length; ay /= use.length; bx /= use.length; by /= use.length;
-    use.forEach((r) => { const ux = r[0] - ax, uy = r[1] - ay, vx = r[2] - bx, vy = r[3] - by; dot += ux * vx + uy * vy; crs += ux * vy - uy * vx; });
-    worst = Math.max(worst, Math.abs(Math.atan2(crs, dot)));
+// Швы — пары точек «здесь на этой детали — там на соседней», в координатах листа. Какие точки контуров сшиваются,
+// берётся из сшитой 3D-модели (seams.js), а как принт идёт через шов — решается на плоских лекалах, от печати (L.mode):
+//  cut   — «по крою»: каждую деталь печатают отдельно, до пошива. На каждой детали принт стоит ровно, по долевой нити
+//          (на соседней детали — без поворота; через плечо — перевёрнутым, как спинка ложится на тело), а половинки
+//          сходятся на шве там, где его пересекает средняя линия принта.
+//  press — «на готовом изделии»: DTF, шелкография, термоперенос после пошива. Вещь раскладывают на столе пресса так,
+//          что детали по обе стороны шва лежат плоско, и кладут одну плоскую картинку. На листе соседняя деталь
+//          приложена к этой по шву (края совмещены), и картинка идёт через шов без излома.
+//  clip  — только на своей детали.
+// Через шов принт переходит, только если края деталей по шву совпадают по форме (бок, плечо, нижний шов рукава): тогда
+// шов и на прессе ложится плоско, и половинки печати сводятся. Окат рукава и пройма разной кривизны — там принт обрезается.
+// См: насколько точки шва под принтом могут расходиться после жёсткого совмещения, чтобы вещь в этом месте ещё легла на
+// стол пресса: прямые бок и плечо — доли миллиметра, изогнутый бок женской футболки у талии — до сантиметра, шов
+// капюшона — 8 см (не ложится). Сама картинка на шве сходится точно (paintStrip).
+const FLAT = 1.2;
+const MODES = {
+  cut: "Детали печатают по отдельности до пошива: на каждой принт ровный, по нити, половинки сходятся на шве по средней линии. Через бок, плечо и шов рукава.",
+  press: "Печать на сшитой вещи (DTF, шелкография, термоперенос): одна плоская картинка поверх шва, как вещь ляжет на стол пресса. Через бок, плечо и шов рукава — без излома.",
+  clip: "Только на своей детали, по шву обрезается.",
+};
+const modeOf = (L) => (L.type === "band" ? "band" : L.mode === "press" || L.mode === "clip" || L.mode === "cut" ? L.mode : L.wrap === false ? "clip" : "cut");
+// Совмещение двух краёв шва: поворот и сдвиг, которые переносят точки шва этой детали на точки соседней.
+// Точки, которые не ложатся (углы подгибки низа, стык с проймой), отбрасываются, и совмещение считается заново.
+function fitRigid(P0) {
+  let P = P0, f = null;
+  for (let it = 0; it < 4; it++) {
+    let ax = 0, ay = 0, bx = 0, by = 0;
+    P.forEach((q) => { ax += q[0]; ay += q[1]; bx += q[2]; by += q[3]; });
+    ax /= P.length; ay /= P.length; bx /= P.length; by /= P.length;
+    let sc = 0, ss = 0;
+    P.forEach((q) => { const ux = q[0] - ax, uy = q[1] - ay, vx = q[2] - bx, vy = q[3] - by; sc += ux * vx + uy * vy; ss += ux * vy - uy * vx; });
+    const th = Math.atan2(ss, sc), c = Math.cos(th), s = Math.sin(th), tx = bx - (c * ax - s * ay), ty = by - (s * ax + c * ay);
+    const err = (q) => Math.hypot(c * q[0] - s * q[1] + tx - q[2], s * q[0] + c * q[1] + ty - q[3]);
+    const es = P.map(err).sort((u, v) => u - v), lim = Math.max(0.2, 3 * es[Math.floor(es.length / 2)]);
+    f = { th, m: [c, s, -s, c, tx, ty], res: Math.sqrt(es.reduce((sum, e) => sum + e * e, 0) / es.length) };
+    const keep = P0.filter((q) => err(q) <= lim);
+    if (keep.length === P.length || keep.length < 4) break;
+    P = keep;
   }
-  return worst;
+  f.inl = P.length / P0.length;                    // какая доля точек шва легла
+  f.P = P;                                          // дальше шов — только по легшим точкам
+  return f;
+}
+// Швы одного размера: точки шва (на текстуре, без подгибки — см. seamPairs) -> лист этого размера;
+// между теми же деталями бывает несколько швов (два боковых, два плечевых) — они разделяются по близости точек.
+function buildSeams(pieces, base, pairs) {
+  const byId = Object.fromEntries(pieces.map((q) => [q.id, q])), groups = new Map();
+  pieces.forEach((q) => { q.seams = []; });
+  const sheet = (q, x, y) => [(x - q.bx) / q.ax, (y - q.by) / q.ay];
+  for (const [a, b, ax, ay, bx, by] of pairs) {
+    const pa = byId[base[a].id], pb = byId[base[b].id];
+    if (!pa || !pb) continue;
+    const A = sheet(pa, ax, ay), B = sheet(pb, bx, by);
+    const k = pa.id + ">" + pb.id;
+    if (!groups.has(k)) groups.set(k, { pa, pb, l: [] });
+    groups.get(k).l.push([...A, ...B]);
+  }
+  for (const { pa, pb, l } of groups.values()) {
+    const lab = new Int32Array(l.length).fill(-1);
+    let n = 0;
+    for (let i = 0; i < l.length; i++) {
+      if (lab[i] >= 0) continue;
+      lab[i] = n;
+      const st = [i];
+      while (st.length) { const j = st.pop(); for (let m = 0; m < l.length; m++) if (lab[m] < 0 && Math.hypot(l[m][0] - l[j][0], l[m][1] - l[j][1]) < 4) { lab[m] = n; st.push(m); } }
+      n++;
+    }
+    for (let c = 0; c < n; c++) {
+      const P = l.filter((_, i) => lab[i] === c);
+      if (P.length < 4) continue;
+      const xs = P.map((q) => q[0]), ys = P.map((q) => q[1]);
+      if (Math.hypot(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) < 3) continue;        // стык в одной точке (угол проймы) — не шов
+      // Печать переходит только между деталями одного вида: перед — спинка (бок, плечо), рукав — рукав (нижний шов),
+      // клин — клин. Пройма (перед или спинка — рукав) и капюшон к горловине на стол пресса плоско не ложатся.
+      pa.seams.push({ to: pb.id, ...fitRigid(P), P, same: pa.kind === pb.kind });
+    }
+  }
 }
 function wrapsOf(L) {
-  const p = piece(L.piece);
-  if (!p || !p.seams || L.type === "band" || L.wrap === false) return [];
+  const p = piece(L.piece), mode = modeOf(L);
+  if (!p || !p.seams || (mode !== "cut" && mode !== "press")) return [];
   const a = (-L.rot * Math.PI) / 180, co = Math.cos(a), si = Math.sin(a), hw = L.w / 2, hh = L.h / 2, out = [];
+  const along = L.w >= L.h;                      // средняя линия принта — вдоль длинной стороны
   for (const sm of p.seams) {
-    let n = 0, cross = 0, ax = 0, ay = 0, bx = 0, by = 0;
-    for (const q of sm.P) {
-      const dx = q[0] - L.x, dy = q[1] - L.y, lx = Math.abs(dx * co - dy * si), ly = Math.abs(dx * si + dy * co);
-      if (lx > hw + 1 || ly > hh + 1) continue;                  // запас 1 см: сдвиг готов чуть раньше касания
-      n++; ax += q[0]; ay += q[1]; bx += q[2]; by += q[3];
-      if (lx <= hw && ly <= hh) cross++;
+    if (!sm.same) continue;                      // полочки бомбера сшиты не друг с другом, а с лентой молнии — шва между ними нет
+    const loc = (q) => { const dx = q[0] - L.x, dy = q[1] - L.y; return [dx * co - dy * si, dx * si + dy * co]; };
+    const inside = (q, m) => { const [lx, ly] = loc(q); return Math.abs(lx) <= hw + m && Math.abs(ly) <= hh + m; };
+    if (sm.P.filter((q) => inside(q, 1)).length < 2) continue;      // запас 1 см: продолжение готово чуть раньше касания
+    // Как детали сходятся именно здесь: совмещение по точкам шва под принтом (±4 см). «На готовом» — только где шов
+    // под принтом почти ровный (изогнутый бок у талии ещё прессуется, шов капюшона — нет); «по крою» детали печатают
+    // порознь, кривизна шва не мешает — нужны только сами точки шва.
+    const near = sm.P.filter((q) => inside(q, 4)), xs = near.map((q) => q[0]), ys = near.map((q) => q[1]);
+    const f = near.length >= 4 && Math.hypot(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) >= 2 ? fitRigid(near) : sm;
+    if (mode === "press" ? f.res > FLAT || f.inl < 0.7 : f.inl < 0.5) continue;
+    let cross = 0;
+    const mid = [];
+    for (const q of f.P) {                        // только точки, которые легли при совмещении
+      if (!inside(q, 1)) continue;
+      const [lx, ly] = loc(q);
+      if (Math.abs(lx) <= hw && Math.abs(ly) <= hh) cross++;
+      mid.push([(along ? Math.abs(ly) : Math.abs(lx)) + 0.01 * Math.hypot(lx, ly), q]);   // близость к средней линии принта
     }
-    if (n < 2) continue;
-    out.push({ to: piece(sm.to), dx: (bx - ax) / n, dy: (by - ay) / n, cross: cross > 0 });
+    if (!mid.length) continue;
+    // Поворот: «на готовом» — как детали легли по шву на столе пресса, «по крою» — по долевой нити (0 или 180°).
+    // Сдвиг: половинки сходятся там, где шов пересекает средняя линия принта (среднее по ближайшим точкам шва).
+    let th = f.th;
+    if (mode === "cut") {
+      const g = Math.round(sm.th / Math.PI) * Math.PI;
+      if (Math.abs(sm.th - g) > Math.PI / 4) continue;        // детали сшиты под большим углом (клинья кепки) — по нити не продолжить
+      th = g;
+    }
+    const c = mode === "cut" ? Math.round(Math.cos(th)) : Math.cos(th), s = mode === "cut" ? Math.round(Math.sin(th)) : Math.sin(th);
+    const use = mid.sort((u, v) => u[0] - v[0]).slice(0, 5).map((u) => u[1]);
+    let tx = 0, ty = 0;
+    use.forEach((q) => { tx += q[2] - (c * q[0] - s * q[1]); ty += q[3] - (s * q[0] + c * q[1]); });
+    tx /= use.length; ty /= use.length;
+    // «по крою» половинки сходятся ровно там, где шов пересекает средняя линия принта: точка пересечения — между двумя
+    // соседними точками шва по обе стороны от линии (с изломом по нити уже в нескольких мм от неё точки расходятся)
+    if (mode === "cut") {
+      const st = seamStrip(f.P.filter((q) => inside(q, 1)));
+      const sd = (q) => { const [lx, ly] = loc(q); return along ? ly : lx; };
+      for (let i = 0; st && i + 1 < st.length; i++) {
+        const d0 = sd(st[i]), d1 = sd(st[i + 1]);
+        if ((d0 <= 0) === (d1 <= 0)) continue;
+        const k = d0 / (d0 - d1), q = st[i].map((v, j) => v + k * (st[i + 1][j] - v));
+        tx = q[2] - (c * q[0] - s * q[1]); ty = q[3] - (s * q[0] + c * q[1]);
+        break;
+      }
+    }
+    const w = { to: piece(sm.to), m: [c, s, -s, c, tx, ty], deg: (th * 180) / Math.PI, cross: cross > 0 };
+    // На сшитой вещи напечатанная поверх шва картинка на самом шве одна и та же с обеих сторон: у «на готовом» продолжение
+    // по каждой точке шва совпадает с парной точкой, а вглубь детали плавно переходит в совмещение (полоса вдоль шва, strip).
+    if (mode === "press") {
+      // все пары шва под принтом, кроме грубых выбросов (больше сантиметра от совмещения) — короткий изогнутый шов
+      // (рукав женской футболки у низа) совмещается хуже, но его точки тоже должны сойтись
+      const em = (q) => { const [x, y] = apply(w.m, q[0], q[1]); return Math.hypot(x - q[2], y - q[3]); };
+      w.strip = seamStrip(sm.P.filter((q) => inside(q, 2) && em(q) < 1));
+    }
+    out.push(w);
   }
   return out;
 }
-const seamT = (g, w) => g.translate(w.dx, w.dy);
-// слой становится слоем соседней детали: тот же сдвиг, что и у его продолжения
-function carry(L, w) { L.x += w.dx; L.y += w.dy; L.piece = w.to.id; }
+// Точки шва вдоль него (по главному направлению), совпадающие (до 0,5 мм) — одной точкой: [x, y на этой детали, x, y на соседней].
+function seamStrip(P) {
+  if (P.length < 2) return null;
+  let mx = 0, my = 0;
+  P.forEach((q) => { mx += q[0]; my += q[1]; });
+  mx /= P.length; my /= P.length;
+  let xx = 0, xy = 0, yy = 0;
+  P.forEach((q) => { const dx = q[0] - mx, dy = q[1] - my; xx += dx * dx; xy += dx * dy; yy += dy * dy; });
+  const t = 0.5 * Math.atan2(2 * xy, xx - yy), ux = Math.cos(t), uy = Math.sin(t), pr = (q) => (q[0] - mx) * ux + (q[1] - my) * uy;
+  const S = P.slice().sort((u, v) => pr(u) - pr(v)), out = [];
+  let grp = [S[0]];
+  const flush = () => { const n = grp.length; out.push([0, 1, 2, 3].map((k) => grp.reduce((a, q) => a + q[k], 0) / n)); };
+  for (let i = 1; i < S.length; i++) { if (pr(S[i]) - pr(grp[0]) < 0.05) grp.push(S[i]); else { flush(); grp = [S[i]]; } }
+  flush();
+  return out.length >= 2 ? out : null;
+}
+// аффинное отображение треугольника s (лист своей детали) в треугольник d (лист соседней) — для canvas transform
+function affine(s, d) {
+  const [a, b, c] = s, det = (b[0] - a[0]) * (c[1] - a[1]) - (c[0] - a[0]) * (b[1] - a[1]);
+  if (Math.abs(det) < 1e-9) return null;
+  const i11 = (c[1] - a[1]) / det, i12 = -(c[0] - a[0]) / det, i21 = -(b[1] - a[1]) / det, i22 = (b[0] - a[0]) / det;
+  const m = (k) => { const p = d[1][k] - d[0][k], q = d[2][k] - d[0][k]; return [p * i11 + q * i21, p * i12 + q * i22]; };
+  const [m00, m01] = m(0), [m10, m11] = m(1);
+  return [m00, m10, m01, m11, d[0][0] - m00 * a[0] - m01 * a[1], d[0][1] - m10 * a[0] - m11 * a[1]];
+}
+// Продолжение «на готовом» на соседней детали q: полоса вдоль шва треугольниками (на шве — точно в пару, на глубине h —
+// совмещение w.m), дальше — совмещение. Рисуется внутри уже заданной обрезки детали.
+function paintStrip(g, L, w, q) {
+  const st = w.strip, inv = invert(w.m), h = Math.hypot(L.w, L.h) + 2, cx = (q.x0 + q.x1) / 2, cy = (q.y0 + q.y1) / 2;
+  const B = st.map((p) => [p[2], p[3]]), A = st.map((p) => [p[0], p[1]]), n = B.length;
+  // одно направление вглубь детали на всю полосу (перпендикуляр к шву от первой точки к последней): у каждой точки своё
+  // дрожало бы на градусы, и на глубине h дальний край полосы шёл бы зигзагом — треугольники налезали бы друг на друга
+  let dx = B[n - 1][0] - B[0][0], dy = B[n - 1][1] - B[0][1]; const dl = Math.hypot(dx, dy) || 1; dx /= dl; dy /= dl;
+  let nx = -dy, ny = dx;
+  const mbx = B.reduce((s, b) => s + b[0], 0) / n, mby = B.reduce((s, b) => s + b[1], 0) / n;
+  if ((cx - mbx) * nx + (cy - mby) * ny < 0) { nx = -nx; ny = -ny; }                          // внутрь детали
+  const nrm = B.map(() => [nx, ny]);
+  const Cd = B.map((b, i) => [b[0] + nrm[i][0] * h, b[1] + nrm[i][1] * h]), Cs = Cd.map((p) => apply(inv, p[0], p[1]));
+  const Od = B.map((b, i) => [b[0] - nrm[i][0] * 0.3, b[1] - nrm[i][1] * 0.3]);              // чуть за край — поле текстуры
+  const Os = A.map((a, i) => { const lin = apply(inv, Od[i][0], Od[i][1]), bb = apply(inv, B[i][0], B[i][1]); return [a[0] + lin[0] - bb[0], a[1] + lin[1] - bb[1]]; });
+  const tri = (s, d) => {
+    const M = affine(s, d);
+    if (!M) return;
+    const mx = (d[0][0] + d[1][0] + d[2][0]) / 3, my = (d[0][1] + d[1][1] + d[2][1]) / 3, e = (p) => [p[0] + (p[0] - mx) * 0.02, p[1] + (p[1] - my) * 0.02];
+    g.save(); tracePath(g, d.map(e)); g.clip(); g.transform(...M); paintBody(g, L); g.restore();
+  };
+  for (let i = 0; i + 1 < n; i++) {
+    tri([A[i], A[i + 1], Cs[i]], [B[i], B[i + 1], Cd[i]]); tri([A[i + 1], Cs[i + 1], Cs[i]], [B[i + 1], Cd[i + 1], Cd[i]]);
+    tri([Os[i], Os[i + 1], A[i]], [Od[i], Od[i + 1], B[i]]); tri([Os[i + 1], A[i + 1], A[i]], [Od[i + 1], B[i + 1], B[i]]);
+  }
+  // остальное — совмещением, кроме полосы
+  g.save();
+  g.beginPath(); g.rect(q.x0 - 50, q.y0 - 50, q.x1 - q.x0 + 100, q.y1 - q.y0 + 100);
+  [...Od, ...Cd.slice().reverse()].forEach((p, i) => (i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]))); g.closePath();
+  g.clip("evenodd"); seamT(g, w); paintBody(g, L); g.restore();
+}
+const seamT = (g, w) => g.transform(...w.m);
+const apply = (m, x, y) => [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]];
+function invert(m) {
+  const d = m[0] * m[3] - m[1] * m[2];
+  return [m[3] / d, -m[1] / d, -m[2] / d, m[0] / d, (m[2] * m[5] - m[3] * m[4]) / d, (m[1] * m[4] - m[0] * m[5]) / d];
+}
+// слой становится слоем соседней детали: то же место и тот же вид, что у его продолжения
+function carry(L, w) { [L.x, L.y] = apply(w.m, L.x, L.y); L.rot = ((L.rot + w.deg + 540) % 360) - 180; L.piece = w.to.id; }
+// Поле за краем детали на текстуре: нанесение рисуется чуть шире контура, иначе на шве 3D-модели фильтрация текстуры
+// подмешивает цвет ткани и через надпись проходит тонкая линия. На лекала и на выкройку поле не попадает.
+function grown(o) {
+  if (o._grown) return o._grown;
+  const d = 0.2, n = o.length;                     // 2 мм: край развёртки у некоторых моделей заходит за контур до 1,5 мм
+  const out = o.map((p, i) => {
+    const q0 = o[(i + n - 1) % n], q1 = o[(i + 1) % n];
+    let e0x = p[0] - q0[0], e0y = p[1] - q0[1], e1x = q1[0] - p[0], e1y = q1[1] - p[1];
+    const l0 = Math.hypot(e0x, e0y) || 1, l1 = Math.hypot(e1x, e1y) || 1;
+    e0x /= l0; e0y /= l0; e1x /= l1; e1y /= l1;
+    let nx = e0y + e1y, ny = -(e0x + e1x);
+    const l = Math.hypot(nx, ny) || 1; nx /= l; ny /= l;
+    if (inPoly(p[0] + nx * 0.01, p[1] + ny * 0.01, o)) { nx = -nx; ny = -ny; }       // наружу
+    const k = Math.min(3, 1 / Math.max(0.35, Math.abs(nx * e1y - ny * e1x)));
+    return [p[0] + nx * d * k, p[1] + ny * d * k];
+  });
+  Object.defineProperty(o, "_grown", { value: out });
+  return out;
+}
 
 function paintBody(g, L) {
   g.translate(L.x, L.y); g.rotate((L.rot * Math.PI) / 180);
@@ -189,8 +403,9 @@ function drawLayer(g, L, onTex) {
   const vis = (q) => onTex || shown(q);
   const into = (q) => {
     g.save();
-    if (onTex && q.mir) { g.translate(q.x0 + q.x1, 0); g.scale(-1, 1); }     // на текстуру зеркальная деталь печатается перевёрнутой
-    tracePiece(g, q); g.clip();
+    // на текстуре деталь лежит в размере модели: обрезка — по её контуру там (с полем за край), нанесение — через перенос «лист -> текстура»
+    if (onTex) { tracePath(g, grown(q.t.o)); g.clip(); g.transform(q.ax, 0, 0, q.ay, q.bx, q.by); }
+    else { tracePiece(g, q); g.clip(); }
   };
   if (vis(p)) {
     into(p);
@@ -198,13 +413,15 @@ function drawLayer(g, L, onTex) {
       const tile = ornTile(L.orn, ORNS[L.orn].own ? "" : inkOf(L)), k = L.h / 96;
       const pat = g.createPattern(tile, "repeat");
       pat.setTransform(L.flip ? new DOMMatrix().translate(p.x1, L.y - L.h / 2).scale(-k, k) : new DOMMatrix().translate(p.x0, L.y - L.h / 2).scale(k));
-      g.fillStyle = pat; g.fillRect(p.x0, L.y - L.h / 2, p.x1 - p.x0, L.h);
+      g.fillStyle = pat; g.fillRect(p.x0 - 0.5, L.y - L.h / 2, p.x1 - p.x0 + 1, L.h);
     } else paintBody(g, L);
     g.restore();
   }
   for (const w of wrapsOf(L)) {                                 // продолжение на соседней детали
     if (!vis(w.to)) continue;
-    into(w.to); seamT(g, w); paintBody(g, L); g.restore();
+    into(w.to);
+    if (w.strip) paintStrip(g, L, w, w.to); else { seamT(g, w); paintBody(g, L); }
+    g.restore();
   }
 }
 let hitWrap = null;       // через какой шов попали в слой последним hitLayer (нажали на его продолжение на соседней детали)
@@ -220,7 +437,7 @@ function hitLayer(x, y, anyPiece) {
       const a = (-L.rot * Math.PI) / 180;
       via = wrapsOf(L).find((w) => {
         if (w.to !== at) return false;
-        const qx = x - w.dx - L.x, qy = y - w.dy - L.y;                                       // обратно в лист своей детали
+        const [ux, uy] = apply(invert(w.m), x, y), qx = ux - L.x, qy = uy - L.y;                // обратно в лист своей детали
         return Math.abs(qx * Math.cos(a) - qy * Math.sin(a)) <= L.w / 2 && Math.abs(qx * Math.sin(a) + qy * Math.cos(a)) <= L.h / 2;
       });
       if (via) { hitWrap = via; return L; }
@@ -240,9 +457,11 @@ function spot(p, type) {                  // место по умолчанию 
   if (p.id === "back") return [cx, p.y0 + h * 0.28];
   return [cx, p.y0 + h * 0.6];
 }
+// Деталь по имени, а если такой у изделия нет (у бомбера перед — две полочки) — первая того же вида.
+const pieceOr = (pid) => piece(pid) || S.pieces.find((p) => p.kind === (pid.startsWith("sleeve") ? "sleeve" : "body")) || S.pieces[0];
 function addLayer(L, pid = "front") {
-  const p = piece(pid), [x, y] = spot(p, L.type);
-  Object.assign(L, { id: S.seq++, piece: pid, x, y, rot: 0, ink: L.ink ?? null }, L.x != null ? { x: L.x, y: L.y } : {});
+  const p = pieceOr(pid), [x, y] = spot(p, L.type);
+  Object.assign(L, { id: S.seq++, piece: p.id, x, y, rot: 0, ink: L.ink ?? null }, L.x != null ? { x: L.x, y: L.y } : {});
   if (L.type === "text") fitText(L);
   S.layers.push(L); select(L); changed();
   return L;
@@ -281,7 +500,7 @@ function changed(live) {
 // Снимок — цвет ткани и слои (картинки по ссылке). При смене модели история начинается заново:
 // координаты слоёв привязаны к листу развёртки конкретной модели.
 const HIST = { list: [], i: -1, lock: false };
-const snapKey = (fabric, layers) => fabric + JSON.stringify(layers.map(({ src, _tint, ...r }) => r));
+const snapKey = (fabric, layers) => fabric + JSON.stringify(layers.map(({ src, _tint, _ink, ...r }) => r));
 function record() {
   if (HIST.lock || !S.pieces.length) return;
   const layers = S.layers.map((L) => ({ ...L })), k = snapKey(S.fabric.id + S.fabric.hex, layers);
@@ -312,7 +531,15 @@ function syncHist() { $("undo").disabled = HIST.i <= 0; $("redo").disabled = HIS
 // ---------- плоский вид ----------
 const pat = $("pat"), pg = pat.getContext("2d");
 let V = { k: 1, ox: 0, oy: 0 };
-const TABS = { all: null, body: "body", sleeves: "sleeve", trim: "trim" };
+// Цвета холста выкройки по теме конструктора (переменные --mk-flat и --mk-fg-rgb в constructor.css).
+const THEME_PNG = { flat: "#1d1e22", fg: "241,239,232" }, THEME = { flat: "#eceae4", fg: "13,13,13" };
+function readTheme() {
+  const cs = getComputedStyle(document.body);
+  THEME.flat = cs.getPropertyValue("--mk-flat").trim() || THEME.flat;
+  THEME.fg = cs.getPropertyValue("--mk-fg-rgb").trim().split(/\s+/).join(",") || THEME.fg;
+}
+readTheme();
+const TABS = { all: null, body: "body", sleeves: "sleeve", parts: "part", trim: "trim" };
 const shown = (p) => !TABS[S.tab] || p.kind === TABS[S.tab];
 function viewBox() {
   let ps = TABS[S.tab] ? S.pieces.filter((p) => p.kind === TABS[S.tab]) : S.pieces;
@@ -326,7 +553,8 @@ function paintFlat(g, W, H, ui) {
   const [vx, vy, vw, vh] = viewBox(), k = Math.min(W / vw, H / vh);
   const ox = (W - vw * k) / 2 - vx * k, oy = (H - vh * k) / 2 - vy * k;
   g.setTransform(1, 0, 0, 1, 0, 0);
-  g.fillStyle = "#1d1e22"; g.fillRect(0, 0, W, H);
+  const th = ui ? THEME : THEME_PNG;                       // холст — в цветах темы, раскладка PNG — всегда в прежних тёмных
+  g.fillStyle = th.flat; g.fillRect(0, 0, W, H);
   g.setTransform(k, 0, 0, k, ox, oy);
   const px = 1 / k;
   const ps = S.pieces.filter(shown);
@@ -335,11 +563,11 @@ function paintFlat(g, W, H, ui) {
   const light = lum(S.fabric.hex) < 0.3;
   ps.forEach((p) => {
     tracePiece(g, p); g.lineWidth = 1.2 * px; g.strokeStyle = light ? "rgba(255,255,255,.34)" : "rgba(0,0,0,.5)"; g.stroke();
-    g.fillStyle = "rgba(241,239,232,.62)"; g.textBaseline = "top";
+    g.fillStyle = `rgba(${th.fg},.62)`; g.textBaseline = "top";   // подпись полосы отделки стоит на фоне, не на ткани
     if (p.kind === "trim") {               // узкие полосы стоят стопкой — подпись справа от полосы, в одну строку
       if (S.tab === "all" && S.pieces.filter((q) => q.kind === "trim").length > 2) return;   // на общем виде им тесно
       g.textAlign = "left"; g.textBaseline = "middle"; g.font = `700 ${10 * px}px "Gotham Pro", Arial, sans-serif`;
-      g.fillText(`${p.name} · ${fmt(p.w)} × ${fmt(p.h)} см`, p.x1 + 8 * px, (p.y0 + p.y1) / 2);
+      g.fillText(`${p.name} · ${mm(p.w)} × ${mm(p.h)} мм`, p.x1 + 8 * px, (p.y0 + p.y1) / 2);
       return;
     }
     g.textAlign = "center";
@@ -358,7 +586,7 @@ function paintFlat(g, W, H, ui) {
     if (fits(p.name, 11, 700)) g.fillText(p.name, (p.x0 + p.x1) / 2, ly);
     if (!tall) return;
     g.fillStyle = light ? "rgba(241,239,232,.4)" : "rgba(13,13,13,.42)";
-    const dims = `${fmt(p.w)} × ${fmt(p.h)} см`;
+    const dims = `${mm(p.w)} × ${mm(p.h)} мм`;
     if (fits(dims, 10, 400)) g.fillText(dims, (p.x0 + p.x1) / 2, ly + 14 * px);
   });
   if (ui) {
@@ -390,7 +618,7 @@ function paintFlat(g, W, H, ui) {
     }
     if (!group && S.sel && shown(piece(S.sel.piece))) {
       const L = S.sel, b = box(L);
-      const txt = L.type === "band" ? `высота ${fmt(L.h)} см` : `${fmt(L.w)} × ${fmt(L.h)} см`;
+      const txt = L.type === "band" ? `высота ${mm(L.h)} мм` : `${mm(L.w)} × ${mm(L.h)} мм`;
       g.font = `700 ${11 * px}px "Gotham Pro", Arial, sans-serif`; g.textAlign = "center"; g.textBaseline = "middle";
       const ty = Math.min(b.y + extent(b, L, px)[1] + 14 * px, vy + vh - 10 * px);
       const tw = g.measureText(txt).width + 14 * px;
@@ -473,7 +701,7 @@ function dragTo(it, dx, dy) {
   if (L.type === "band") { moveTo(L, nx, ny); return; }
   const at = pieceAt(nx, ny);
   if (at && at.id !== L.piece) {
-    const far = (q) => Math.hypot(L.x + q.dx - nx, L.y + q.dy - ny);          // из нескольких швов — тот, что меньше сдвигает рамку
+    const far = (q) => { const [cx, cy] = apply(q.m, L.x, L.y); return Math.hypot(cx - nx, cy - ny); };   // из нескольких швов — тот, что меньше сдвигает рамку
     const w = wrapsOf(L).filter((q) => q.to === at).sort((m, n) => far(m) - far(n))[0];
     if (w) { carry(L, w); it.x = L.x - dx; it.y = L.y - dy; return; }
     L.piece = at.id;
@@ -541,8 +769,14 @@ renderer.domElement.addEventListener("pointermove", (e) => {
   } else {
     if (at && at.id !== L.piece) {
       // Указатель ушёл через шов на соседнюю деталь. Если слой сам лежит на этом шве, он едет дальше тем же местом
-      // под указателем (смещение захвата сохраняется). Иначе — не соседи по шву или плечо — слой встаёт под указатель.
-      if (!wrapsOf(L).some((q) => q.to === at)) { grab.dx = 0; grab.dy = 0; }
+      // под указателем: смещение захвата и сам слой поворачиваются так, как соседняя деталь приложена по шву
+      // (через плечо — на 180°). Иначе — не соседи по ровному шву — слой встаёт под указатель.
+      const w = wrapsOf(L).find((q) => q.to === at);
+      if (w) {
+        const [c, s] = w.m;
+        [grab.dx, grab.dy] = [c * grab.dx - s * grab.dy, s * grab.dx + c * grab.dy];
+        L.rot = ((L.rot + w.deg + 540) % 360) - 180;
+      } else { grab.dx = 0; grab.dy = 0; }
       L.piece = at.id;
     }
     L.x = p[0] + grab.dx; L.y = p[1] + grab.dy;
@@ -589,8 +823,15 @@ function build(geo) {
   if (model) scene.remove(model, inner);
   model = new THREE.Mesh(geo, mats[0]); inner = new THREE.Mesh(geo, mats[1]);
   scene.add(model, inner);
-  controls.target.set(0, S.H * 0.5, 0);
+  scale3d();
   setFabric(S.fabric.id);
+}
+// Изделие в сцене — выбранного размера: модель базового размера растянута по ширине и по длине
+function scale3d() {
+  if (!model) return;
+  for (const o of [model, inner]) o.scale.set(S.k3[0], S.k3[1], S.k3[0]);
+  controls.target.set(0, S.H * 0.5, 0);
+  dirty = true;
 }
 const OWN = { id: "own", name: "Свой цвет", hex: "#7d8791", set: false };      // свой цвет ткани из палитры
 function setFabric(id, asIs, live) {
@@ -609,8 +850,11 @@ function setFabric(id, asIs, live) {
 let flyTo = null;
 const VIEWS = { front: 0.32, back: Math.PI - 0.32, left: Math.PI / 2, right: -Math.PI / 2 };
 function fly(name) {
-  const d = Math.max(1.9, Math.min(3.0, cam.position.distanceTo(controls.target)));
-  flyTo = { az: VIEWS[name], d, y: S.H * (name === "left" || name === "right" ? 0.86 : 0.7) };
+  // Камера стоит так, чтобы изделие занимало сцену: к мелким (кепка 14 см) подходит ближе, от крупных отходит.
+  const near = Math.min(1.9, Math.max(0.62, S.H * 3.2 + 0.2)), far = S.H < 0.5 ? near + 0.1 : 3.0;
+  const d = Math.max(near, Math.min(far, cam.position.distanceTo(controls.target)));
+  const side = (name === "left" || name === "right") && S.pieces.some((p) => p.kind === "sleeve");      // вид на рукав — выше середины
+  flyTo = { az: VIEWS[name], d, y: S.H * (side ? 0.86 : 0.7) };
   [...$("views").children].forEach((b) => b.classList.toggle("on", b.dataset.view === name));
 }
 function tick() {
@@ -817,13 +1061,14 @@ function syncProps() {
   if (!L) return;
   const size = L.type === "band" ? L.h : L.type === "text" ? L.h : L.w;
   $("pSize").max = L.type === "band" ? 20 : L.type === "text" ? 30 : 70;
-  $("pSize").value = size; $("pSizeOut").textContent = fmt(size) + " см";
+  $("pSize").value = size; $("pSizeOut").textContent = mm(size) + " мм";
   $("pRot").value = L.rot; $("pRotOut").textContent = Math.round(L.rot) + "°";
   $("pPiece").value = L.piece;
   renderLayers();
 }
 $("multiAlign").innerHTML = ALIGN.map((a) => btn(a, TITLES[a])).join("");
-$("pWrap").onclick = (e) => { const b = e.target.closest("button"); if (b && S.sel) { S.sel.wrap = !!b.dataset.wrap; changed(); } };
+$("pMode").onclick = (e) => { const b = e.target.closest("button"); if (b && S.sel && S.sel.type !== "band") { S.sel.mode = b.dataset.mode; delete S.sel.wrap; changed(); } };
+// способ печати меняется у выбранного нанесения; у пары на втором рукаве — вместе с ним (mirrorTo копирует mode)
 $("pPair").onclick = (e) => { const b = e.target.closest("button"); if (b && S.sel) { setPair(S.sel, b.dataset.pair || null); changed(); } };
 function syncPanel() {
   const L = S.sel, n = S.picks.length;
@@ -836,7 +1081,8 @@ function syncPanel() {
   }
   if (L) {
     const sl = onSleeve(L);
-    [...$("pWrap").children].forEach((b) => b.classList.toggle("on", (L.wrap !== false) === !!b.dataset.wrap));
+    [...$("pMode").children].forEach((b) => b.classList.toggle("on", b.dataset.mode === modeOf(L)));
+    $("pModeNote").textContent = MODES[modeOf(L)] || "";
     $("pPairRow").hidden = !sl;
     if (sl) [...$("pPair").children].forEach((b) => b.classList.toggle("on", (L.pair || "") === b.dataset.pair));
     $("propsTitle").textContent = KIND[L.type];
@@ -874,7 +1120,7 @@ function renderLayers() {
     if (L.type === "img") { const im = document.createElement("img"); im.src = thumbOf(L.src); im.alt = ""; t.append(im); } else t.textContent = L.type === "text" ? "Aa" : "≋";
     const d = document.createElement("div"); d.className = "ln";
     const nm = document.createElement("b"); nm.textContent = nameOf(L);
-    const sz = document.createElement("small"); sz.textContent = `${piece(L.piece).name} · ${L.type === "band" ? fmt(L.h) : fmt(L.w) + " × " + fmt(L.h)} см${L.link ? (L.pair === "mirror" ? " · зеркало" : " · в паре") : ""}`;
+    const sz = document.createElement("small"); sz.textContent = `${piece(L.piece).name} · ${L.type === "band" ? mm(L.h) : mm(L.w) + " × " + mm(L.h)} мм${L.link ? (L.pair === "mirror" ? " · зеркало" : " · в паре") : ""}`;
     d.append(nm, sz);
     const c = document.createElement("div"); c.className = "lb";
     c.innerHTML = btn("eye", L.hidden ? "Показать" : "Скрыть", L.hidden ? "eyeOff" : "eye") + btn("up", "Выше", "up", i === n - 1) + btn("down", "Ниже", "down", i === 0) + btn("del", "Удалить");
@@ -1014,7 +1260,7 @@ async function addFiles(files, at) {
 }
 function place(item, at) {
   let p = at && pieceAt(at[0], at[1]);
-  if (!p) { p = S.sel && piece(S.sel.piece).kind !== "trim" ? piece(S.sel.piece) : piece("front"); at = null; }
+  if (!p) { p = S.sel && piece(S.sel.piece).kind !== "trim" ? piece(S.sel.piece) : pieceOr("front"); at = null; }
   const r = item.src.height / item.src.width, w = Math.min(24, (p.x1 - p.x0) * (p.kind === "trim" ? 0.3 : 0.5));
   const L = { type: "img", src: item.src, lib: item.id, name: item.name, w: r > 1.4 ? w / r : w, h: r > 1.4 ? w : w * r };
   if (at) { L.x = at[0]; L.y = at[1]; }
@@ -1108,13 +1354,15 @@ addEventListener("keydown", (e) => {
 
 // ---------- заявка ----------
 function spec() {
-  const lines = ["Здравствуйте! Макет из конструктора Izum.", `Изделие: футболка ${S.model.name.toLowerCase()}, цвет ткани — ${S.fabric.id === "own" ? "свой, " + S.fabric.hex.toUpperCase() : S.fabric.name.toLowerCase()}.`];
+  const lines = ["Здравствуйте! Макет из конструктора Izum.", `Изделие: ${S.model.prod.name.toLowerCase()}${S.model.prod.models.length > 1 ? " " + S.model.name.toLowerCase() : ""}${S.sizes.length > 1 ? ", размер " + S.size : ""}, цвет ткани — ${S.fabric.id === "own" ? "свой, " + S.fabric.hex.toUpperCase() : S.fabric.name.toLowerCase()}.`];
   const vis = S.layers.filter((L) => !L.hidden);
   vis.forEach((L, i) => {
     const p = piece(L.piece), what = L.type === "text" ? `текст «${L.text}»` : L.type === "band" ? `кайма «${ORNS[L.orn].name}»` : `логотип${L.name ? " " + L.name : ""}`;
-    const size = L.type === "band" ? `высота ${fmt(L.h)} см, от низа детали ${fmt(p.y1 - L.y - L.h / 2)} см` : `${fmt(L.w)} × ${fmt(L.h)} см, от верха детали ${fmt(L.y - L.h / 2 - p.y0)} см, от середины ${fmt(L.x - (p.x0 + p.x1) / 2)} см${L.rot ? `, поворот ${Math.round(L.rot)}°` : ""}${L.flip ? ", отражено зеркально" : ""}`;
-    const over = [...new Set(wrapsOf(L).filter((w) => w.cross && w.to.id !== L.piece).map((w) => w.to.name.toLowerCase()))];
-    const seam = over.length ? ` Переходит через шов на: ${over.join(", ")}.` : "";
+    const size = L.type === "band" ? `высота ${mm(L.h)} мм, от низа детали ${mm(p.y1 - L.y - L.h / 2)} мм` : `${mm(L.w)} × ${mm(L.h)} мм, от верха детали ${mm(L.y - L.h / 2 - p.y0)} мм, от середины ${mm(L.x - (p.x0 + p.x1) / 2)} мм${L.rot ? `, поворот ${Math.round(L.rot)}°` : ""}${L.flip ? ", отражено зеркально" : ""}`;
+    const mode = modeOf(L), over = [...new Set(wrapsOf(L).filter((w) => w.cross).map((w) => w.to.name.toLowerCase()))];
+    const how = L.type === "band" ? "" : mode === "press" ? " Печать на готовом изделии (DTF / шелкография / термоперенос), одной картинкой поверх шва."
+      : mode === "clip" ? " Только на этой детали, по шву обрезается." : over.length ? " Печать по деталям кроя до пошива, с вылетом на припуск шва." : "";
+    const seam = (over.length ? ` Переходит через шов на: ${over.join(", ")}.` : "") + how;
     const pair = L.link ? (L.pair === "mirror" ? " В паре со вторым рукавом, зеркально." : " В паре со вторым рукавом.") : "";
     lines.push(`${i + 1}. ${p.name}: ${what} — ${size}.${seam}${pair}`);
   });
@@ -1127,79 +1375,188 @@ $("png").onclick = () => {
   c.width = 2400; c.height = 2000; S.tab = "all"; S.sel = null;
   paintFlat(c.getContext("2d"), c.width, c.height, false);
   S.tab = tab; S.sel = sel;
-  c.toBlob((b) => { const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = "izum-maket-futbolka.png"; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); });
+  c.toBlob((b) => { const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = `izum-maket-futbolka${S.size ? "-" + S.size : ""}.png`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); });
 };
 
-// ---------- модели ----------
+// ---------- светлый и тёмный режим ----------
+// Конструктор всегда открывается светлым (как сайт); кнопка на сцене переключает тему. Выбор нарочно не запоминается.
+// Сцена прозрачная (alpha) — её фон задаёт CSS, а выкройку на холсте нужно перерисовать.
+function setTheme(dark) {
+  // на время смены темы плавные переходы цвета выключены: иначе кнопки на долю секунды становятся тёмным по тёмному
+  document.body.classList.add("mk-swap");
+  requestAnimationFrame(() => requestAnimationFrame(() => document.body.classList.remove("mk-swap")));
+  document.body.dataset.theme = dark ? "dark" : "light";
+  const b = $("theme"), t = dark ? "Светлый режим" : "Тёмный режим";
+  b.setAttribute("aria-pressed", String(dark)); b.title = t; b.setAttribute("aria-label", t);
+  readTheme(); drawPattern();
+}
+$("theme").onclick = () => setTheme(document.body.dataset.theme !== "dark");
+setTheme(false);
+
+// ---------- модели и размеры ----------
+const VER = "1114i";
 const loaded = new Map();
+const bounds = (o) => { const xs = o.map((q) => q[0]), ys = o.map((q) => q[1]); return { o, x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) }; };
+// Описание прежнего вида (детали без размеров, контур снизу вверх, зеркальные развёртки) читается как изделие одного размера.
+function legacy(info) {
+  const A = info.atlas, turn = {};
+  const pieces = info.pieces.map((p) => {
+    const raw = p.outline.map(([x, y]) => [x, A - y]), b = bounds(raw);
+    if (p.mir) turn[p.id] = b.x0 + b.x1;
+    return { ...p, tex: raw, outline: p.mir ? raw.map(([x, y]) => [b.x0 + b.x1 - x, y]) : raw, fx: (p.fx || 1) * (p.mir ? -1 : 1) };
+  });
+  const seams = (info.seams || []).map(([a, b, flat]) => [a, b, flat.map((v, i) => { const t = turn[i % 4 < 2 ? a : b]; return i % 2 ? A - v : t != null ? t - v : v; })]);
+  return { ...info, base: "", order: [""], chart: [], sizes: { "": { pieces, seams, k3: [1, 1], chart: [] } } };
+}
+// Детали одного размера: контур на своём листе и перенос на текстуру (лист базового размера).
+function sizeOf(info, name) {
+  const sz = info.sizes[name], base = info.sizes[info.base];
+  const tex = Object.fromEntries(base.pieces.map((p) => [p.id, bounds(p.tex || p.outline)]));
+  const pieces = sz.pieces.map((p) => {
+    const b = bounds(p.outline), t = tex[p.id], kx = (t.x1 - t.x0) / (b.x1 - b.x0), ky = (t.y1 - t.y0) / (b.y1 - b.y0);
+    // зеркальная развёртка (только в описаниях прежнего вида): на листе деталь лежит «как снаружи», на текстуру печатается отражённой
+    const map = p.mir ? { ax: -kx, bx: t.x1 + b.x0 * kx } : { ax: kx, bx: t.x0 - b.x0 * kx };
+    return { ...p, ...b, ...map, ay: ky, by: t.y0 - b.y0 * ky, t, seams: [] };
+  });
+  return { pieces, k3: sz.k3 || [1, 1], chart: sz.chart || [] };
+}
 function fetchModel(m) {
   if (!loaded.has(m.id)) loaded.set(m.id, Promise.all([
-    fetch(`models/${m.id}.json?v=1113o`).then((r) => r.json()),
-    new GLTFLoader().loadAsync(`models/${m.id}.glb?v=1113o`),
-  ]).then(([info, gltf]) => {
+    fetch(`models/${m.id}.json?v=${VER}`).then((r) => r.json()),
+    new GLTFLoader().loadAsync(`models/${m.id}.glb?v=${VER}`),
+  ]).then(([raw, gltf]) => {
     let geo = null;
     gltf.scene.traverse((o) => { if (o.isMesh && !geo) geo = o.geometry; });
-    const A = info.atlas;
-    const pieces = info.pieces.map((p) => {
-      const raw = p.outline.map(([x, y]) => [x, A - y]);
-      const xs = raw.map((q) => q[0]), ys = raw.map((q) => q[1]), x0 = Math.min(...xs), x1 = Math.max(...xs);
-      // Деталь с зеркальной развёрткой (правый рукав мужской модели) на листе показывается «как снаружи»:
-      // контур отражён, а при печати на текстуру нанесение отражается обратно — иначе надпись читалась бы задом наперёд.
-      const o = p.mir ? raw.map(([x, y]) => [x0 + x1 - x, y]) : raw;
-      return { ...p, o, raw, fx: (p.fx || 1) * (p.mir ? -1 : 1), x0, x1, y0: Math.min(...ys), y1: Math.max(...ys) };
-    });
-    // швы: пары точек «на этой детали — на соседней», в координатах листа (с учётом зеркальных деталей)
-    const byId = Object.fromEntries(pieces.map((q) => [q.id, q]));
-    pieces.forEach((q) => { q.seams = []; });
-    (info.seams || []).forEach(([ia, ib, flat]) => {
-      const pa = byId[ia], pb = byId[ib];
-      if (!pa || !pb) return;
-      const fw = [], bw = [];
-      for (let i = 0; i < flat.length; i += 4) {
-        const ax = pa.mir ? pa.x0 + pa.x1 - flat[i] : flat[i], ay = A - flat[i + 1];
-        const bx = pb.mir ? pb.x0 + pb.x1 - flat[i + 2] : flat[i + 2], by = A - flat[i + 3];
-        fw.push([ax, ay, bx, by]); bw.push([bx, by, ax, ay]);
-      }
-      // ровный переход — только через боковые швы тела и нижний шов рукава (см. «переход через шов»)
-      const even = ia === ib ? pa.kind === "sleeve" : pa.kind === "body" && pb.kind === "body" && seamTurn(fw) < 1.05;
-      if (!even) return;
-      pa.seams.push({ to: ib, P: fw }); pb.seams.push({ to: ia, P: bw });       // у нижнего шва рукава обе записи — на самой детали
-    });
-    return { info, geo, pieces };
+    const info = raw.sizes ? raw : legacy(raw);
+    const sizes = Object.fromEntries(info.order.map((n) => [n, sizeOf(info, n)]));
+    // все швы изделия — по сшитой модели (в описании модели были только боковые); на каждом размере — в его лекалах
+    const base = sizes[info.base].pieces, pairs = seamPairs(geo, base, info.atlas);
+    Object.values(sizes).forEach((s) => buildSeams(s.pieces, base, pairs));
+    return { info, geo, sizes };
   }));
   return loaded.get(m.id);
 }
-async function useModel(id) {
-  const m = MODELS.find((x) => x.id === id) || MODELS[0];
-  [...$("models").children].forEach((b) => b.classList.toggle("on", b.dataset.id === m.id));
-  const d = await fetchModel(m), old = S.pieces;
-  // слои переезжают на ту же деталь новой модели и сохраняют место в долях её размера
-  S.layers.forEach((L) => {
-    const a = old.find((p) => p.id === L.piece), b = d.pieces.find((p) => p.id === L.piece) || d.pieces.find((p) => a && p.kind === a.kind) || d.pieces[0];
-    if (a) { L.x = b.x0 + ((L.x - a.x0) / (a.x1 - a.x0)) * (b.x1 - b.x0); L.y = L.type === "band" ? b.y1 - (a.y1 - L.y) : b.y0 + ((L.y - a.y0) / (a.y1 - a.y0)) * (b.y1 - b.y0); }
-    L.piece = b.id;
-    if (L.type === "band") L.h = Math.min(L.h, b.y1 - b.y0);
-  });
-  S.model = m; S.A = d.info.atlas; S.H = d.info.height; S.pieces = d.pieces;
-  S.layers.forEach((L) => { if (L.type === "band") moveTo(L, L.x, L.y); });
-  $("pPiece").innerHTML = S.pieces.map((p) => `<option value="${p.id}">${p.name}</option>`).join("");
-  build(d.geo);
-  syncPanel(); fit(); resetHist();
+// Нанесение, попавшее на деталь другого изделия, должно на ней помещаться.
+function fitIn(L, b) {
+  if (L.type === "band" || b.kind === "trim") return;
+  // крупнее детали (надпись со спинки — на клин кепки) — уменьшается, чтобы поместиться целиком
+  const k = Math.min(1, (0.86 * (b.x1 - b.x0)) / L.w, (0.86 * (b.y1 - b.y0)) / L.h);
+  if (k < 1) { L.h *= k; if (L.type === "text") fitText(L); else L.w *= k; }
+  // на узкой детали не вылезает за край — иначе его режет молния
+  if (b.x1 - b.x0 > L.w + 2) L.x = Math.min(b.x1 - L.w / 2 - 1, Math.max(b.x0 + L.w / 2 + 1, L.x));
+  // на полочке бомбера и на клине кепки — по середине: у края его срезает молния, пройма или шов
+  if (b.kind === "body" && b.id !== "front" && b.id !== "back") L.x = (b.x0 + b.x1) / 2;
 }
-$("models").innerHTML = MODELS.map((m) => `<button type="button" data-id="${m.id}">${m.name}</button>`).join("");
+// Изделие в заголовке сцены: название, список изделий и переключатель его моделей.
+function syncProduct(p) {
+  $("prodName").textContent = p.name;
+  [...$("prods").children].forEach((b) => b.classList.toggle("on", b.dataset.id === p.id));
+  $("models").innerHTML = p.models.map((m) => `<button type="button" data-id="${m.id}">${m.name}</button>`).join("");
+  $("models").hidden = p.models.length < 2;                                   // одна модель — переключать нечего
+  // подписи вкладок выкройки, видов и пояснение о размере — свои у изделий, где нет переда со спинкой и рукавов
+  for (const [box, own, key] of [["tabs", p.tabs, "tab"], ["views", p.views, "view"]]) {
+    [...$(box).children].forEach((b) => { b.dataset.label ??= b.textContent; b.textContent = (own || {})[b.dataset[key]] || b.dataset.label; });
+  }
+  $("noteOne").dataset.label ??= $("noteOne").textContent; $("noteOne").textContent = p.note || $("noteOne").dataset.label;
+}
+async function useModel(id, size) {
+  const m = MODELS.find((x) => x.id === id) || MODELS[0];
+  const swap = !S.model || S.model.prod !== m.prod;
+  if (swap) syncProduct(m.prod);
+  [...$("models").children].forEach((b) => b.classList.toggle("on", b.dataset.id === m.id));
+  const d = await fetchModel(m), old = S.pieces, same = S.model === m;
+  const name = d.sizes[size] ? size : d.sizes[S.size] ? S.size : d.info.base, next = d.sizes[name];
+  S.layers.forEach((L) => {
+    const a = old.find((p) => p.id === L.piece), band = L.type === "band";
+    if (!a || same) {
+      const b = next.pieces.find((p) => p.id === L.piece) || next.pieces[0];
+      if (a) {
+        // Другой размер того же изделия: нанесение остаётся своего размера и на своём месте — на том же расстоянии от середины
+        // детали и от её верха (у рукавов и каймы — от низа). Так один макет годится на весь размерный ряд.
+        const low = band || b.kind === "sleeve";
+        if (b.kind === "trim") { L.x = b.x0 + ((L.x - a.x0) / (a.x1 - a.x0)) * (b.x1 - b.x0); L.y = (b.y0 + b.y1) / 2 + (L.y - (a.y0 + a.y1) / 2); }
+        else { L.x = (b.x0 + b.x1) / 2 + (L.x - (a.x0 + a.x1) / 2); L.y = low ? b.y1 - (a.y1 - L.y) : b.y0 + (L.y - a.y0); }
+      }
+      L.piece = b.id;
+      if (band) L.h = Math.min(L.h, b.y1 - b.y0);
+      return;
+    }
+    // Другая модель. Нанесение помнит, где и какого размера оно стояло там, где его поставил пользователь (L.from),
+    // и каждый раз переезжает оттуда, а не с промежуточного изделия: футболка → кепка → футболка возвращает всё на место.
+    // Если после переезда его сдвинули или изменили — исходным становится новое место.
+    const eq = (u, v) => Math.abs(u - v) < 1e-6, f = L.from;
+    const kept = f && f.to === L.piece && eq(L.x, f.sx) && eq(L.y, f.sy) && eq(L.w, f.sw) && eq(L.h, f.sh);
+    const o = kept ? f : { id: a.id, kind: a.kind, look: a.look, rx: (L.x - a.x0) / (a.x1 - a.x0), ry: band ? a.y1 - L.y : (L.y - a.y0) / (a.y1 - a.y0), w: L.w, h: L.h };
+    // Деталь нового изделия: та же; иначе того же вида с той же стороны изделия; иначе с той же стороны; иначе того же вида.
+    const b = next.pieces.find((p) => p.id === o.id) || next.pieces.find((p) => p.kind === o.kind && p.look === o.look)
+      || (o.kind !== "trim" && next.pieces.find((p) => p.look === o.look && p.kind !== "trim")) || next.pieces.find((p) => p.kind === o.kind) || next.pieces[0];
+    L.w = o.w; L.h = o.h; if (L.type === "text") fitText(L);
+    L.x = b.x0 + o.rx * (b.x1 - b.x0); L.y = band ? b.y1 - o.ry : b.y0 + o.ry * (b.y1 - b.y0);
+    fitIn(L, b);
+    L.piece = b.id;
+    if (band) L.h = Math.min(L.h, b.y1 - b.y0);
+    L.from = { ...o, to: b.id };
+  });
+  S.model = m; S.size = name; S.sizes = d.info.order; S.A = d.info.atlas; S.k3 = next.k3; S.H = d.info.height * next.k3[1]; S.pieces = next.pieces;
+  S.layers.forEach((L) => {
+    if (L.type === "band") moveTo(L, L.x, L.y);
+    if (L.from && !same) Object.assign(L.from, { to: L.piece, sx: L.x, sy: L.y, sw: L.w, sh: L.h });     // каким нанесение стало после переезда
+  });
+  $("pPiece").innerHTML = S.pieces.map((p) => `<option value="${p.id}">${p.name}</option>`).join("");
+  // вкладки выкройки — только те, для которых у изделия есть детали (капюшон и карман — у худи, отделки может не быть)
+  [...$("tabs").children].forEach((b) => { const k = TABS[b.dataset.tab]; b.hidden = !!k && !S.pieces.some((p) => p.kind === k); });
+  if ($("tabs").querySelector(`[data-tab="${S.tab}"]`).hidden) { S.tab = "all"; [...$("tabs").children].forEach((b) => b.classList.toggle("on", b.dataset.tab === "all")); }
+  syncSizes(d.info, next);
+  m.prod.models.forEach(fetchModel);                  // соседние модели того же изделия подгружаются заранее
+  if (same && model) { scale3d(); changed(); } else build(d.geo);
+  syncPanel(); fit(); resetHist();
+  if (swap) fly("front");                              // другое изделие — другой размер: камера встаёт заново
+}
+// размерный ряд, табель мер выбранного размера и файлы лекал
+function syncSizes(info, next) {
+  $("sizeBox").hidden = info.order.length < 2;
+  const many = info.order.length > 1, draw = info.source === "drawing";       // лекала по чертежу — у изделий из Marvelous Designer
+  $("noteSizes").hidden = !many || draw; $("noteDraw").hidden = !many || !draw; $("noteOne").hidden = many;
+  $("sizes").innerHTML = info.order.map((n) => `<button type="button" data-size="${n}"${n === S.size ? ' class="on"' : ""}>${n}</button>`).join("");
+  $("sizeName").textContent = S.size;
+  const names = Object.fromEntries(info.chart || []), row = ([k, v]) => `<div><dt>${names[k] || k}</dt><dd>${mm(v)} мм</dd></div>`;
+  $("chart").innerHTML = next.chart.slice(0, 4).map(row).join("");
+  $("chartMore").innerHTML = next.chart.slice(4).map(row).join("");
+  for (const ext of ["svg", "dxf"]) {
+    const a = $(ext === "svg" ? "lekSvg" : "lekDxf");
+    a.href = `models/lekala/${info.id}_${S.size}.${ext}?v=${VER}`; a.download = `izum-lekala-${info.id}-${S.size}.${ext}`;
+  }
+}
+$("sizes").onclick = (e) => { const b = e.target.closest("button"); if (b && b.dataset.size !== S.size) useModel(S.model.id, b.dataset.size); };
 $("models").onclick = (e) => { const b = e.target.closest("button"); if (b && b.dataset.id !== S.model.id) useModel(b.dataset.id); };
+// Выбор изделия: нажатие на заголовок открывает список. Модель нового изделия — того же пола, что и текущая.
+$("prods").innerHTML = PRODUCTS.map((p) => `<button type="button" role="option" data-id="${p.id}">${p.name}</button>`).join("");
+const openProds = (on) => { $("prods").hidden = !on; $("prod").setAttribute("aria-expanded", String(on)); };
+$("prod").onclick = () => openProds($("prods").hidden);
+$("prods").onclick = (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  openProds(false);
+  const p = PRODUCTS.find((x) => x.id === b.dataset.id);
+  if (p !== S.model.prod) useModel(p.models[Math.min(S.model.prod.models.indexOf(S.model) % 2, p.models.length - 1)].id);
+};
+addEventListener("pointerdown", (e) => { if (!$("prods").hidden && !e.target.closest("#prods, #prod")) openProds(false); }, true);
+addEventListener("keydown", (e) => { if (e.key === "Escape") openProds(false); });
 
 // ---------- запуск ----------
 async function start() {
   if (document.fonts) await document.fonts.load('italic 900 20px "Gotham Pro"').catch(() => 0);
-  await useModel(MODELS[0].id);
+  // constructor.html?item=hoodie открывает сразу нужное изделие (ссылки с витрины)
+  const first = PRODUCTS.find((p) => p.id === new URLSearchParams(location.search).get("item")) || PRODUCTS[0];
+  await useModel(first.models[0].id);
   $("load").remove();
   // пример, чтобы сразу было видно, как это работает: знак на груди, надпись на спине, каймы на рукавах и бейке
   const logo = new Image();
   logo.onload = () => {
-    const r = logo.naturalHeight / logo.naturalWidth, f = piece("front");
-    addLayer({ type: "img", src: logo, name: "Izum", ink: "#ffffff", w: 8, h: 8 * r, x: f.x0 + (f.x1 - f.x0) * 0.7, y: f.y0 + (f.y1 - f.y0) * 0.3 }, "front");
-    addLayer({ type: "text", text: "Izum Production", font: "gotham", h: 2.8, w: 1 }, "back");
+    const r = logo.naturalHeight / logo.naturalWidth, f = pieceOr("front");
+    addLayer({ type: "img", src: logo, name: "Izum", ink: "#ffffff", w: 8, h: 8 * r, x: f.x0 + (f.x1 - f.x0) * (f.id === "front" ? 0.7 : 0.5), y: f.y0 + (f.y1 - f.y0) * 0.3 }, "front");
+    // надпись — на детали, которая смотрит назад (спинка, задний клин кепки); на узкой она уменьшается
+    const rear = S.pieces.find((p) => p.kind === "body" && p.look === "back");
+    if (rear) fitIn(addLayer({ type: "text", text: "Izum Production", font: "gotham", h: 2.8, w: 1 }, rear.id), rear);
     const sleeve = S.pieces.find((p) => p.kind === "sleeve");
     if (sleeve) setPair(addLayer({ type: "band", orn: "meander", h: 2.4, w: 0, ink: "#ffd400" }, sleeve.id), "mirror");
     S.pieces.filter((p) => p.kind === "trim" && p.name.startsWith("Бейка")).forEach((p) => addLayer({ type: "band", orn: "line", h: p.h, w: 0 }, p.id));
@@ -1207,7 +1564,8 @@ async function start() {
   };
   logo.onerror = () => { changed(); resetHist(); };
   logo.src = "img/izum-logo.png";
-  tick(); MODELS.slice(1).forEach(fetchModel);
-  window.izumMk = { S, LIB, HIST, PK, act, select, setPair, pick, wrapsOf, addFiles, fly, spec, useModel, renderer, cam, controls, get model() { return model; }, get view() { return V; } };
+  tick();
+  window.izumMk = { S, LIB, HIST, PK, act, select, setPair, pick, wrapsOf, addFiles, fly, spec, useModel, fromUV, renderer, cam, controls, changed, hitLayer, modeOf, addLayer, texCv,
+    get model() { return model; }, get view() { return V; } };
 }
 start().catch((err) => { console.error(err); $("load").textContent = "Не получилось загрузить модель. Обновите страницу."; });

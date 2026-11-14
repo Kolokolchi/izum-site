@@ -4,16 +4,16 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Соберите свой мерч — конструктор · Izum</title>
-  <meta name="description" content="Соберите макет футболки: логотип, текст и кайма на любой детали кроя, сразу в 3D и с размерами в сантиметрах.">
+  <meta name="description" content="Соберите макет футболки, худи, свитшота, поло, бомбера, кепки или шопера: логотип, текст и кайма на любой детали кроя, сразу в 3D, размеры от S до XXXL, все мерки в миллиметрах.">
   <meta name="robots" content="noindex">
   <link rel="icon" href="img/izum-logo.png">
   <link rel="stylesheet" href="hero.css?v=1113p">
   <link rel="stylesheet" href="site.css?v=1113p">
   <link rel="stylesheet" href="pages.css?v=1113p">
-  <link rel="stylesheet" href="constructor.css?v=1113p">
+  <link rel="stylesheet" href="constructor.css?v=1114w">
   <script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
 </head>
-<body class="page mk-page">
+<body class="page mk-page" data-theme="light">
   <div class="izum-line izum-line-top" aria-hidden="true"></div>
   <header class="bar">
     <a class="brand" href="index.html"><img src="img/izum-logo.png" alt="Izum Design &amp; Production"><span>Izum<br>Design &amp; Production</span></a>
@@ -30,7 +30,10 @@
     <section class="mk-stage" id="stage" aria-label="Изделие в 3D">
       <div class="mk-title">
         <p class="eyebrow">Соберите свой мерч</p>
-        <h1>Футболка</h1>
+        <div class="mk-prodbox">
+          <h1><button type="button" class="mk-prod" id="prod" aria-haspopup="listbox" aria-expanded="false" title="Выбрать изделие"><span id="prodName">Футболка</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9l7 7 7-7"/></svg></button></h1>
+          <div class="mk-prods" id="prods" role="listbox" aria-label="Изделие" hidden></div>
+        </div>
         <div class="mk-models" id="models" aria-label="Модель"></div>
       </div>
       <div class="mk-views" id="views">
@@ -40,7 +43,11 @@
         <button type="button" data-view="right">Правый рукав</button>
       </div>
       <div class="mk-tools" id="tools3d" hidden aria-label="Управление нанесением"></div>
-      <p class="mk-hint" id="hint">Крутите изделие мышью. Нанесение можно тащить прямо по ткани. Через боковой шов оно переходит со спинки на перед. Shift + клик — выбрать несколько.</p>
+      <button type="button" class="mk-theme" id="theme" aria-pressed="false" title="Тёмный режим" aria-label="Тёмный режим">
+        <svg class="moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z"/></svg>
+        <svg class="sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg>
+      </button>
+      <p class="mk-hint" id="hint">Крутите изделие мышью. Нанесение можно тащить прямо по ткани. Через бок и плечо оно переходит со спинки на перед — как напечатают, выберите в «Печать через шов». Shift + клик — выбрать несколько.</p>
       <p class="mk-load" id="load">Загружаем модель…</p>
     </section>
 
@@ -50,6 +57,7 @@
           <button type="button" data-tab="all" class="on">Вся выкройка</button>
           <button type="button" data-tab="body">Перед и спинка</button>
           <button type="button" data-tab="sleeves">Рукава</button>
+          <button type="button" data-tab="parts" hidden>Капюшон и карман</button>
           <button type="button" data-tab="trim">Отделка</button>
         </div>
         <div class="mk-hist">
@@ -61,6 +69,21 @@
     </section>
 
     <aside class="mk-panel" aria-label="Настройки макета">
+      <div class="mk-group" id="sizeBox" hidden>
+        <h2>Размер <b id="sizeName"></b></h2>
+        <div class="mk-seg" id="sizes" aria-label="Размер изделия"></div>
+        <dl class="mk-chart" id="chart"></dl>
+        <details class="mk-more">
+          <summary>Все мерки</summary>
+          <dl class="mk-chart" id="chartMore"></dl>
+        </details>
+        <div class="mk-add">
+          <a class="mk-btn mk-ghost" id="lekSvg" download>Лекала SVG</a>
+          <a class="mk-btn mk-ghost" id="lekDxf" download>Лекала DXF</a>
+        </div>
+        <p class="mk-note">Мерки готового изделия. Лекала — в натуральную величину: линия реза с припусками и линия шва. Нанесение на всех размерах остаётся одного размера и на том же расстоянии от середины и верха детали.</p>
+      </div>
+
       <div class="mk-group">
         <h2>Цвет ткани</h2>
         <div class="mk-colors" id="fabric"></div>
@@ -110,11 +133,13 @@
           <select id="pPiece"></select>
         </div>
         <label class="mk-row"><span id="pSizeName">Ширина</span><input type="range" id="pSize" min="1" max="60" step="0.1"><output id="pSizeOut"></output></label>
-        <div class="mk-row mk-wide" data-for="free">У края детали
-          <div class="mk-seg" id="pWrap">
-            <button type="button" data-wrap="1" title="Через боковой шов нанесение продолжается на соседней детали: со спинки на перед и обратно">Через шов</button>
-            <button type="button" data-wrap="" title="Нанесение остаётся только на своей детали">Обрезать</button>
+        <div class="mk-row mk-wide" data-for="free">Печать через шов
+          <div class="mk-seg" id="pMode">
+            <button type="button" data-mode="cut" title="Каждую деталь печатают отдельно до пошива: принт ровный на каждой детали, половинки сходятся на шве">По крою</button>
+            <button type="button" data-mode="press" title="Печать на сшитой вещи (DTF, шелкография, термоперенос): одна плоская картинка поверх шва">На готовом</button>
+            <button type="button" data-mode="clip" title="Только на своей детали, по шву обрезается">Обрезать</button>
           </div>
+          <small id="pModeNote"></small>
         </div>
         <div class="mk-row mk-wide" id="pPairRow" hidden>Второй рукав
           <div class="mk-seg" id="pPair">
@@ -149,7 +174,9 @@
       <div class="mk-group mk-send">
         <button type="button" class="btn" id="send">Отправить макет</button>
         <button type="button" class="mk-btn mk-ghost" id="png">Скачать раскладку PNG</button>
-        <p class="mk-note">Размеры считаются по развёртке 3D-модели — перед запуском в работу менеджер сверит их с лекалами.</p>
+        <p class="mk-note" id="noteSizes">Лекала построены по 3D-модели: детали симметричны, сшиваемые срезы равны по длине. Размерная сетка и припуски на швы типовые — перед запуском в работу их сверит технолог.</p>
+        <p class="mk-note" id="noteDraw" hidden>Лекала построены по чертежу, по которому собрана 3D-модель. Сама модель — размер L у мужской и M у женской, на остальных размерах она растягивается. Градация размеров и припуски на швы типовые — перед запуском в работу их сверит технолог.</p>
+        <p class="mk-note" id="noteOne" hidden>У этого изделия модель одного размера: мужская — примерно L, женская — примерно M. Размерный ряд и лекала под раскрой для него пока не подключены, размер уточнит менеджер.</p>
       </div>
     </aside>
   </main>
@@ -167,6 +194,6 @@
   </div>
 
   <script src="data.js?v=1113p"></script>
-  <script type="module" src="constructor.js?v=1113p"></script>
+  <script type="module" src="constructor.js?v=1114u"></script>
 </body>
 </html>
