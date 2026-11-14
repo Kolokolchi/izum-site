@@ -65,6 +65,10 @@ const PRODUCTS = [
   // tabs / views — свои подписи вкладок выкройки и видов (рукавов у них нет), note — подпись под кнопкой отправки.
   { id: "cap", name: "Кепка", models: [{ id: "cap", name: "Кепка" }],
     tabs: { body: "Клинья", parts: "Козырёк", trim: "Ремешки" }, views: { back: "Сзади", left: "Слева", right: "Справа" },
+    // Нанесения на переде и сзади встают поверх центрального шва (seamMark): ширина по типу, см; высота центра — в долях клина
+    // от макушки (y) или выше конца шва, где начинается вырез застёжки (up, см); поворот вдоль шва, ° (rot; нет — по самому шву).
+    // Перед — так поставил пользователь 14.11.2026: знак 4,5 см, 70 %, 15°.
+    seamMark: { front: { w: { img: 4.5, text: 8.5 }, y: 0.7, rot: 15 }, back: { w: { img: 4.5, text: 8.5 }, up: 2.2 } },
     note: "Кепка одного размера, с регулируемой застёжкой сзади. Лекала под раскрой для неё не подключены." },
   { id: "tote", name: "Шопер", models: [{ id: "tote", name: "Шопер" }],
     tabs: { body: "Полотна", parts: "Дно", trim: "Ручки и кайма" }, views: { back: "Сзади", left: "Слева", right: "Справа" },
@@ -166,10 +170,12 @@ function lum(hex) { const [r, g, b] = [1, 3, 5].map((p) => parseInt(hex.slice(p,
 //  cut   — «по крою»: каждую деталь печатают отдельно, до пошива. На каждой детали принт стоит ровно, по долевой нити
 //          (на соседней детали — без поворота; через плечо — перевёрнутым, как спинка ложится на тело), а половинки
 //          сходятся на шве там, где его пересекает средняя линия принта.
-//  press — «на готовом изделии»: DTF, шелкография, термоперенос после пошива. Вещь раскладывают на столе пресса так,
+//  press — «на изделии» (на готовом, сшитом изделии): DTF, шелкография, термоперенос после пошива. Вещь раскладывают на столе пресса так,
 //          что детали по обе стороны шва лежат плоско, и кладут одну плоскую картинку. На листе соседняя деталь
 //          приложена к этой по шву (края совмещены), и картинка идёт через шов без излома.
 //  clip  — только на своей детали.
+// По умолчанию — press (решение пользователя 14.11.2026: на всех моделях начинать с проекции «на изделии»; «по крою»
+// на клиньях кепки давал излом по нити на каждом шве). Явно выбранный способ сохраняется в L.mode.
 // Через шов принт переходит, только если края деталей по шву совпадают по форме (бок, плечо, нижний шов рукава): тогда
 // шов и на прессе ложится плоско, и половинки печати сводятся. Окат рукава и пройма разной кривизны — там принт обрезается.
 // См: насколько точки шва под принтом могут расходиться после жёсткого совмещения, чтобы вещь в этом месте ещё легла на
@@ -181,7 +187,7 @@ const MODES = {
   press: "Печать на сшитой вещи (DTF, шелкография, термоперенос): одна плоская картинка поверх шва, как вещь ляжет на стол пресса. Через бок, плечо и шов рукава — без излома.",
   clip: "Только на своей детали, по шву обрезается.",
 };
-const modeOf = (L) => (L.type === "band" ? "band" : L.mode === "press" || L.mode === "clip" || L.mode === "cut" ? L.mode : L.wrap === false ? "clip" : "cut");
+const modeOf = (L) => (L.type === "band" ? "band" : L.mode === "press" || L.mode === "clip" || L.mode === "cut" ? L.mode : L.wrap === false ? "clip" : "press");
 // Совмещение двух краёв шва: поворот и сдвиг, которые переносят точки шва этой детали на точки соседней.
 // Точки, которые не ложатся (углы подгибки низа, стык с проймой), отбрасываются, и совмещение считается заново.
 function fitRigid(P0) {
@@ -249,7 +255,7 @@ function wrapsOf(L) {
     const loc = (q) => { const dx = q[0] - L.x, dy = q[1] - L.y; return [dx * co - dy * si, dx * si + dy * co]; };
     const inside = (q, m) => { const [lx, ly] = loc(q); return Math.abs(lx) <= hw + m && Math.abs(ly) <= hh + m; };
     if (sm.P.filter((q) => inside(q, 1)).length < 2) continue;      // запас 1 см: продолжение готово чуть раньше касания
-    // Как детали сходятся именно здесь: совмещение по точкам шва под принтом (±4 см). «На готовом» — только где шов
+    // Как детали сходятся именно здесь: совмещение по точкам шва под принтом (±4 см). «На изделии» — только где шов
     // под принтом почти ровный (изогнутый бок у талии ещё прессуется, шов капюшона — нет); «по крою» детали печатают
     // порознь, кривизна шва не мешает — нужны только сами точки шва.
     const near = sm.P.filter((q) => inside(q, 4)), xs = near.map((q) => q[0]), ys = near.map((q) => q[1]);
@@ -264,7 +270,7 @@ function wrapsOf(L) {
       mid.push([(along ? Math.abs(ly) : Math.abs(lx)) + 0.01 * Math.hypot(lx, ly), q]);   // близость к средней линии принта
     }
     if (!mid.length) continue;
-    // Поворот: «на готовом» — как детали легли по шву на столе пресса, «по крою» — по долевой нити (0 или 180°).
+    // Поворот: «на изделии» — как детали легли по шву на столе пресса, «по крою» — по долевой нити (0 или 180°).
     // Сдвиг: половинки сходятся там, где шов пересекает средняя линия принта (среднее по ближайшим точкам шва).
     let th = f.th;
     if (mode === "cut") {
@@ -291,7 +297,7 @@ function wrapsOf(L) {
       }
     }
     const w = { to: piece(sm.to), m: [c, s, -s, c, tx, ty], deg: (th * 180) / Math.PI, cross: cross > 0 };
-    // На сшитой вещи напечатанная поверх шва картинка на самом шве одна и та же с обеих сторон: у «на готовом» продолжение
+    // На сшитой вещи напечатанная поверх шва картинка на самом шве одна и та же с обеих сторон: у «на изделии» продолжение
     // по каждой точке шва совпадает с парной точкой, а вглубь детали плавно переходит в совмещение (полоса вдоль шва, strip).
     if (mode === "press") {
       // все пары шва под принтом, кроме грубых выбросов (больше сантиметра от совмещения) — короткий изогнутый шов
@@ -328,7 +334,7 @@ function affine(s, d) {
   const [m00, m01] = m(0), [m10, m11] = m(1);
   return [m00, m10, m01, m11, d[0][0] - m00 * a[0] - m01 * a[1], d[0][1] - m10 * a[0] - m11 * a[1]];
 }
-// Продолжение «на готовом» на соседней детали q: полоса вдоль шва треугольниками (на шве — точно в пару, на глубине h —
+// Продолжение «на изделии» на соседней детали q: полоса вдоль шва треугольниками (на шве — точно в пару, на глубине h —
 // совмещение w.m), дальше — совмещение. Рисуется внутри уже заданной обрезки детали.
 function paintStrip(g, L, w, q) {
   const st = w.strip, inv = invert(w.m), h = Math.hypot(L.w, L.h) + 2, cx = (q.x0 + q.x1) / 2, cy = (q.y0 + q.y1) / 2;
@@ -1360,7 +1366,7 @@ function spec() {
     const p = piece(L.piece), what = L.type === "text" ? `текст «${L.text}»` : L.type === "band" ? `кайма «${ORNS[L.orn].name}»` : `логотип${L.name ? " " + L.name : ""}`;
     const size = L.type === "band" ? `высота ${mm(L.h)} мм, от низа детали ${mm(p.y1 - L.y - L.h / 2)} мм` : `${mm(L.w)} × ${mm(L.h)} мм, от верха детали ${mm(L.y - L.h / 2 - p.y0)} мм, от середины ${mm(L.x - (p.x0 + p.x1) / 2)} мм${L.rot ? `, поворот ${Math.round(L.rot)}°` : ""}${L.flip ? ", отражено зеркально" : ""}`;
     const mode = modeOf(L), over = [...new Set(wrapsOf(L).filter((w) => w.cross).map((w) => w.to.name.toLowerCase()))];
-    const how = L.type === "band" ? "" : mode === "press" ? " Печать на готовом изделии (DTF / шелкография / термоперенос), одной картинкой поверх шва."
+    const how = L.type === "band" ? "" : mode === "press" ? " Печать на изделии — на сшитой вещи (DTF / шелкография / термоперенос), одной картинкой поверх шва."
       : mode === "clip" ? " Только на этой детали, по шву обрезается." : over.length ? " Печать по деталям кроя до пошива, с вылетом на припуск шва." : "";
     const seam = (over.length ? ` Переходит через шов на: ${over.join(", ")}.` : "") + how;
     const pair = L.link ? (L.pair === "mirror" ? " В паре со вторым рукавом, зеркально." : " В паре со вторым рукавом.") : "";
@@ -1437,15 +1443,61 @@ function fetchModel(m) {
   return loaded.get(m.id);
 }
 // Нанесение, попавшее на деталь другого изделия, должно на ней помещаться.
-function fitIn(L, b) {
+function fitIn(L, b, prod = S.model.prod, pieces = S.pieces) {
   if (L.type === "band" || b.kind === "trim") return;
+  if (onCenterSeam(L, b, prod, pieces)) return true;
   // крупнее детали (надпись со спинки — на клин кепки) — уменьшается, чтобы поместиться целиком
   const k = Math.min(1, (0.86 * (b.x1 - b.x0)) / L.w, (0.86 * (b.y1 - b.y0)) / L.h);
   if (k < 1) { L.h *= k; if (L.type === "text") fitText(L); else L.w *= k; }
+  // по ширине детали на своей высоте: у проймы и горловины деталь уже, чем по габариту, — поля по 2,5 см, иначе пройма
+  // срезает края (надпись со спинки женской футболки, поло, худи теряла первую и последнюю букву)
+  const span = !L.rot && spanAt(b, L.x, [L.y - L.h / 2, L.y, L.y + L.h / 2]);
+  if (span) {
+    // и не шире 72 % детали: шире края уходят на бок и за висящий рукав (на спинке худи и поло их было не видно)
+    const room = Math.min(span[1] - span[0] - 5, 0.72 * (span[1] - span[0]));
+    if (room > 2 && L.w > room) { const k = room / L.w; L.h *= k; if (L.type === "text") fitText(L); else L.w *= k; }
+    if (span[1] - span[0] > L.w + 5) L.x = Math.min(span[1] - 2.5 - L.w / 2, Math.max(span[0] + 2.5 + L.w / 2, L.x));
+  }
   // на узкой детали не вылезает за край — иначе его режет молния
   if (b.x1 - b.x0 > L.w + 2) L.x = Math.min(b.x1 - L.w / 2 - 1, Math.max(b.x0 + L.w / 2 + 1, L.x));
   // на полочке бомбера и на клине кепки — по середине: у края его срезает молния, пройма или шов
-  if (b.kind === "body" && b.id !== "front" && b.id !== "back") L.x = (b.x0 + b.x1) / 2;
+  // по середине ширины на его высоте, а не габарита: полочку на уровне груди подрезает пройма — по габариту знак уезжал к плечу
+  if (b.kind === "body" && b.id !== "front" && b.id !== "back") L.x = span ? (span[0] + span[1]) / 2 : (b.x0 + b.x1) / 2;
+}
+// Отрезок по горизонтали внутри контура детали, в котором стоит x, — общий для всех высот ys (пересечение); нет — null.
+function spanAt(p, x, ys) {
+  let lo = -Infinity, hi = Infinity;
+  for (const y of ys) {
+    const xs = [];
+    p.o.forEach((a, i) => { const c = p.o[(i + 1) % p.o.length]; if ((a[1] > y) !== (c[1] > y)) xs.push(a[0] + ((y - a[1]) * (c[0] - a[0])) / (c[1] - a[1])); });
+    xs.sort((u, v) => u - v);
+    let hit = false;
+    for (let i = 0; i + 1 < xs.length; i += 2) if (xs[i] <= x && x <= xs[i + 1]) { lo = Math.max(lo, xs[i]); hi = Math.min(hi, xs[i + 1]); hit = true; }
+    if (!hit) return null;
+  }
+  return hi > lo ? [lo, hi] : null;
+}
+// Перед и спинка, сшитые по середине (клинья кепки): нанесение встаёт поверх центрального шва и идёт через него на второй
+// клин — небольшое, повёрнутое вдоль шва, чтобы на изделии стояло ровно (prod.seamMark).
+function onCenterSeam(L, b, prod, pieces) {
+  const cfg = prod && prod.seamMark && prod.seamMark[b.look], w = cfg && cfg.w[L.type];
+  if (!w || b.kind !== "body") return false;
+  const look = (id) => (pieces.find((p) => p.id === id) || {}).look;          // s.to — название соседней детали
+  const sm = (b.seams || []).find((s) => s.same && look(s.to) === b.look);
+  if (!sm || sm.P.length < 2) return false;
+  const P = sm.P.slice().sort((u, v) => u[1] - v[1]);
+  const at = (y) => {                                                          // x шва на высоте y
+    let i = P.findIndex((q) => q[1] >= y); if (i < 1) i = i ? P.length - 1 : 1;
+    const a = P[i - 1], c = P[i], t = Math.min(1, Math.max(0, (y - a[1]) / (c[1] - a[1] || 1)));
+    return a[0] + (c[0] - a[0]) * t;
+  };
+  // сзади шов кончается над вырезом застёжки — надпись стоит над ним
+  const y = cfg.y != null ? b.y0 + cfg.y * (b.y1 - b.y0) : P[P.length - 1][1] - cfg.up, x = at(y);
+  const ux = at(y - 1.5) - at(y + 1.5);                                        // шов вверх, к макушке: вправо (+) или влево (-)
+  const rot = cfg.rot != null ? Math.sign(ux || 1) * cfg.rot : Math.round((Math.atan2(ux, 3) * 180) / Math.PI);
+  if (L.type === "text") { L.h *= w / L.w; fitText(L); } else { L.h *= w / L.w; L.w = w; }
+  L.x = x; L.y = y; L.rot = rot;
+  return true;
 }
 // Изделие в заголовке сцены: название, список изделий и переключатель его моделей.
 function syncProduct(p) {
@@ -1486,13 +1538,17 @@ async function useModel(id, size) {
     // Если после переезда его сдвинули или изменили — исходным становится новое место.
     const eq = (u, v) => Math.abs(u - v) < 1e-6, f = L.from;
     const kept = f && f.to === L.piece && eq(L.x, f.sx) && eq(L.y, f.sy) && eq(L.w, f.sw) && eq(L.h, f.sh);
-    const o = kept ? f : { id: a.id, kind: a.kind, look: a.look, rx: (L.x - a.x0) / (a.x1 - a.x0), ry: band ? a.y1 - L.y : (L.y - a.y0) / (a.y1 - a.y0), w: L.w, h: L.h };
+    const o = kept ? f : { id: a.id, kind: a.kind, look: a.look, rx: (L.x - a.x0) / (a.x1 - a.x0), ry: band ? a.y1 - L.y : (L.y - a.y0) / (a.y1 - a.y0), w: L.w, h: L.h, rot: L.rot };
     // Деталь нового изделия: та же; иначе того же вида с той же стороны изделия; иначе с той же стороны; иначе того же вида.
-    const b = next.pieces.find((p) => p.id === o.id) || next.pieces.find((p) => p.kind === o.kind && p.look === o.look)
+    // у изделия без рукавов (шопер) кайма правого рукава — на перед, левого — на спинку, а не обе на перед одна на другую
+    const noSleeve = o.kind === "sleeve" && !next.pieces.some((p) => p.kind === "sleeve" || p.look === o.look)
+      && next.pieces.find((p) => p.kind === "body" && p.look === (o.look === "left" ? "back" : "front"));
+    const b = noSleeve || next.pieces.find((p) => p.id === o.id) || next.pieces.find((p) => p.kind === o.kind && p.look === o.look)
       || (o.kind !== "trim" && next.pieces.find((p) => p.look === o.look && p.kind !== "trim")) || next.pieces.find((p) => p.kind === o.kind) || next.pieces[0];
     L.w = o.w; L.h = o.h; if (L.type === "text") fitText(L);
     L.x = b.x0 + o.rx * (b.x1 - b.x0); L.y = band ? b.y1 - o.ry : b.y0 + o.ry * (b.y1 - b.y0);
-    fitIn(L, b);
+    if (kept && f.rot != null) L.rot = f.rot;                  // поворот — тоже с исходного места (на кепке знак повёрнут вдоль шва)
+    fitIn(L, b, m.prod, next.pieces);
     L.piece = b.id;
     if (band) L.h = Math.min(L.h, b.y1 - b.y0);
     L.from = { ...o, to: b.id };
@@ -1553,10 +1609,17 @@ async function start() {
   const logo = new Image();
   logo.onload = () => {
     const r = logo.naturalHeight / logo.naturalWidth, f = pieceOr("front");
-    addLayer({ type: "img", src: logo, name: "Izum", ink: "#ffffff", w: 8, h: 8 * r, x: f.x0 + (f.x1 - f.x0) * (f.id === "front" ? 0.7 : 0.5), y: f.y0 + (f.y1 - f.y0) * 0.3 }, "front");
+    const mark = addLayer({ type: "img", src: logo, name: "Izum", ink: "#ffffff", w: 8, h: 8 * r, x: f.x0 + (f.x1 - f.x0) * (f.id === "front" ? 0.7 : 0.5), y: f.y0 + (f.y1 - f.y0) * 0.3 }, "front");
+    // открыли сразу кепку или бомбер (перед из двух деталей) — исходное место знака как на футболке (левая сторона груди):
+    // иначе при переходе на другое изделие он уезжал к середине груди, а с кепки — маленьким и повёрнутым к боковому шву
+    if (fitIn(mark, f) || f.id !== "front") mark.from = { id: "front", kind: "body", look: "front", rx: 0.7, ry: 0.3, w: 8, h: 8 * r, rot: 0, to: mark.piece, sx: mark.x, sy: mark.y, sw: mark.w, sh: mark.h };
     // надпись — на детали, которая смотрит назад (спинка, задний клин кепки); на узкой она уменьшается
     const rear = S.pieces.find((p) => p.kind === "body" && p.look === "back");
-    if (rear) fitIn(addLayer({ type: "text", text: "Izum Production", font: "gotham", h: 2.8, w: 1 }, rear.id), rear);
+    if (rear) {
+      const t = addLayer({ type: "text", text: "Izum Production", font: "gotham", h: 2.8, w: 1 }, rear.id), w = t.w, h = t.h;
+      // на узком клине кепки надпись уменьшилась — исходной для других изделий остаётся полная, как на спинке футболки
+      if (fitIn(t, rear) || t.h !== h) t.from = { id: "back", kind: "body", look: "back", rx: 0.5, ry: 0.28, w, h, rot: 0, to: t.piece, sx: t.x, sy: t.y, sw: t.w, sh: t.h };
+    }
     const sleeve = S.pieces.find((p) => p.kind === "sleeve");
     if (sleeve) setPair(addLayer({ type: "band", orn: "meander", h: 2.4, w: 0, ink: "#ffd400" }, sleeve.id), "mirror");
     S.pieces.filter((p) => p.kind === "trim" && p.name.startsWith("Бейка")).forEach((p) => addLayer({ type: "band", orn: "line", h: p.h, w: 0 }, p.id));

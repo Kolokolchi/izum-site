@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="hero.css?v=1113p">
   <link rel="stylesheet" href="site.css?v=1113p">
   <link rel="stylesheet" href="pages.css?v=1113p">
-  <link rel="stylesheet" href="constructor.css?v=1114w">
+  <link rel="stylesheet" href="constructor.css?v=1114x">
   <script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
 </head>
 <body class="page mk-page" data-theme="light">
@@ -135,8 +135,8 @@
         <label class="mk-row"><span id="pSizeName">Ширина</span><input type="range" id="pSize" min="1" max="60" step="0.1"><output id="pSizeOut"></output></label>
         <div class="mk-row mk-wide" data-for="free">Печать через шов
           <div class="mk-seg" id="pMode">
+            <button type="button" data-mode="press" title="Печать на сшитой вещи (DTF, шелкография, термоперенос): одна плоская картинка поверх шва">На изделии</button>
             <button type="button" data-mode="cut" title="Каждую деталь печатают отдельно до пошива: принт ровный на каждой детали, половинки сходятся на шве">По крою</button>
-            <button type="button" data-mode="press" title="Печать на сшитой вещи (DTF, шелкография, термоперенос): одна плоская картинка поверх шва">На готовом</button>
             <button type="button" data-mode="clip" title="Только на своей детали, по шву обрезается">Обрезать</button>
           </div>
           <small id="pModeNote"></small>
@@ -194,6 +194,6 @@
   </div>
 
   <script src="data.js?v=1113p"></script>
-  <script type="module" src="constructor.js?v=1114u"></script>
+  <script type="module" src="constructor.js?v=1115g"></script>
 </body>
 </html>
