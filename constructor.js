@@ -72,6 +72,8 @@ const PRODUCTS = [
     note: "Кепка одного размера, с регулируемой застёжкой сзади. Лекала под раскрой для неё не подключены." },
   { id: "tote", name: "Шопер", models: [{ id: "tote", name: "Шопер" }],
     tabs: { body: "Полотна", parts: "Дно", trim: "Ручки и кайма" }, views: { back: "Сзади", left: "Слева", right: "Справа" },
+    // знак на переднем полотне — по центру (просьба пользователя 14.11.2026), доли ширины и высоты полотна
+    center: { front: { img: [0.5, 0.5] } },
     note: "Шопер одного размера: полотно 46 × 31 см, ручки шириной 2 см. Лекала под раскрой для него не подключены." },
 ];
 PRODUCTS.forEach((p) => p.models.forEach((m) => { m.prod = p; }));
@@ -1446,6 +1448,15 @@ function fetchModel(m) {
 function fitIn(L, b, prod = S.model.prod, pieces = S.pieces) {
   if (L.type === "band" || b.kind === "trim") return;
   if (onCenterSeam(L, b, prod, pieces)) return true;
+  const at = prod && prod.center && prod.center[b.look] && prod.center[b.look][L.type];
+  if (at && b.kind === "body") {                   // своё место у изделия (знак шопера — по центру полотна)
+    L.y = b.y0 + at[1] * (b.y1 - b.y0);
+    const s = spanAt(b, (b.x0 + b.x1) / 2, [L.y]);
+    L.x = s ? s[0] + at[0] * (s[1] - s[0]) : b.x0 + at[0] * (b.x1 - b.x0); L.rot = 0;
+    const k = Math.min(1, (0.72 * (b.x1 - b.x0)) / L.w, (0.86 * (b.y1 - b.y0)) / L.h);       // крупный — помещается целиком
+    if (k < 1) { L.h *= k; if (L.type === "text") fitText(L); else L.w *= k; }
+    return true;
+  }
   // крупнее детали (надпись со спинки — на клин кепки) — уменьшается, чтобы поместиться целиком
   const k = Math.min(1, (0.86 * (b.x1 - b.x0)) / L.w, (0.86 * (b.y1 - b.y0)) / L.h);
   if (k < 1) { L.h *= k; if (L.type === "text") fitText(L); else L.w *= k; }
