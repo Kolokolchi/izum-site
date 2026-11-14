@@ -1,8 +1,9 @@
-// Первый экран Izum: очередь вещей → выбранная подлетает к камере → на неё можно примерить
-// свой логотип или паттерн и выбрать цвет. Вырос из presentation/falcon/app.js.
+// Первый экран Izum: очередь вещей → выбранная подлетает к камере, рядом — её описание и характеристики;
+// цвет вещи и сцены выбирается. Вырос из presentation/falcon/app.js.
 //
-// Вещь рисуется шейдером (WebGL2): он перекрашивает жёлтые пиксели в выбранный цвет и кладёт
-// нанесение как в мокапе — в размеченную зону печати, по маске поверхности, с изгибом по складкам.
+// Вещь рисуется шейдером (WebGL2): он перекрашивает жёлтые пиксели в выбранный цвет.
+// Примерки логотипа здесь больше нет (убрана 14.11.2026 по решению пользователя): нанесение собирают
+// на отдельной странице «Конструктор» (constructor.html). Прежний код примерки — в истории git.
 (() => {
   "use strict";
 
@@ -11,12 +12,9 @@
   const STEP = 0.38;               // угол между соседями на дуге, рад
   const THICK = 18;                // «толщина» плоской вырезки, px
   const LAYERS = 5;
-  const CH_ANGLE = [8, 20, 0];     // поворот вещи в каждом разделе, градусы (только от исходной позы вперёд);
-                                   // в разделе «Ваш логотип» вещь стоит строго лицом
+  const CH_ANGLE = [8, 20];        // поворот вещи в каждом разделе карточки, градусы (только от исходной позы вперёд)
   const CHAPTERS = CH_ANGLE.length;
-  const CUSTOM = 2;                // раздел с примеркой логотипа
   const HI_FRAMES = 14;            // столько первых кадров есть в полном размере (tools/make_turntable.py: HI_KEEP)
-  const WHATSAPP = "77771737475";
 
   const $ = (id) => document.getElementById(id);
   const app = $("app"), stage = $("stage");
@@ -29,39 +27,14 @@
     active: -1,             // индекс вещи в режиме презентации
     chapter: 0,
     g: 0,                   // 0 — очередь, 1 — презентация
-    flat: 0,                // 0 — вещь слегка наклонена, 1 — стоит ровно (примерка)
     shown: -1,              // индекс, подписанный внизу
     W: 0, H: 0, mobile: false, size: 0, R: 0,
     color: null,            // выбранный цвет {id, name, hex, t:[r,g,b] 0..1, lum}
     visible: true,          // первый экран в зоне видимости
   };
 
-  // Нанесение пользователя
-  const C = {
-    src: null,              // canvas с логотипом (обрезан по содержимому)
-    mono: false,            // логотип набран текстом — цвет подбирается под поверхность
-    mode: "logo",           // logo | pattern
-    tint: "orig",           // orig | white | black | custom (цвет ink)
-    ink: "#e5007d",
-    text: "", font: "gotham",
-    pat: "brick",           // раскладка паттерна, см. PATTERNS
-    orn: "none",            // готовый узор под нанесением, см. ORNS
-    part: 1,                // где печатать паттерн: 1 — снаружи, 2 — внутри, 3 — везде
-    scale: 1,               // 1 — логотип занимает 80% зоны печати, 1.25 — всю зону
-    ver: 0,                 // растёт при любом изменении — текстуры нанесения пересобираются
-    off: ITEMS.map(() => ({})),               // сдвиг логотипа внутри зоны печати: off[вещь][место] = {x, y} в долях зоны
-    zone: "front",          // место, которое сейчас настраивается
-    places: { front: true, back: false, sleeve: false },   // где логотип стоит
-  };
-
-  // Места нанесения каждой вещи: «спереди» (print) и, если заданы в data.js, спина и рукав (places).
-  // k — кадр оборота, на котором место смотрит в камеру.
-  const PLACE_NAMES = { front: "Спереди", back: "Спина", sleeve: "Рукав" };
-  const ZONES = ITEMS.map((it) => [{ id: "front", k: 0, ...it.print }, ...Object.entries(it.places || {}).map(([id, z]) => ({ id, ...z }))]);
-  const curZone = (i) => ZONES[i].find((z) => z.id === C.zone) || ZONES[i][0];
-  const off = (i, id) => C.off[i][id] || (C.off[i][id] = { x: 0, y: 0 });
-  // кадры, которые есть в полном размере: лицевые и кадры мест с соседями (tools/make_turntable.py: is_hi)
-  const hiFrames = (i, n) => { const ks = new Set(); for (let k = 0; k < HI_FRAMES; k++) ks.add(k); for (const z of ZONES[i]) if (z.k) for (const d of [-1, 0, 1]) ks.add(mod(z.k + d, n)); return [...ks]; };
+  // Кадры, которые у выбранной вещи берутся в полном размере: лицевые (в карточке вещь поворачивается не дальше 20°).
+  const hiFrames = (n) => Array.from({ length: Math.min(HI_FRAMES, n) }, (_, k) => k);
 
   const mod = (a, n) => ((a % n) + n) % n;
   const wrap = (d) => { d = mod(d, N); return d > N / 2 ? d - N : d; };
@@ -77,21 +50,11 @@ in vec2 p; out vec2 v;
 void main() { v = vec2(p.x * .5 + .5, .5 - p.y * .5); gl_Position = vec4(p, 0., 1.); }`;
   const FS = `#version 300 es
 precision highp float;
-uniform sampler2D uF, uP, uT, uO;  // кадр вещи, зона печати с логотипом, плитка паттерна, плитка готового узора
-uniform float uOrn;                // 1 — готовый узор включён
-uniform vec2 uTileO;               // размер плитки узора в пикселях кадра
+uniform sampler2D uF;              // кадр вещи
 uniform vec3 uCol;                 // выбранный цвет
 uniform float uRec;                // 1 — перекрашивать
 uniform float uCut;                // 1 — тёмная сцена: слабый ореол вокруг вещи срезается
-uniform mat3 uH;                   // кадр → зона печати
-uniform float uArc, uK, uSurf, uSurfB, uAxis, uShift, uSquash, uDisp;
-uniform vec4 uEb, uEx;             // эллипсы внутренней части: центр и полуоси в долях кадра
-uniform vec2 uPart;                // паттерн: печатать снаружи (x) и внутри (y)
-uniform int uMode;                 // 0 — без нанесения, 1 — логотип, 2 — паттерн
-uniform vec2 uSize, uTile, uRot;   // uRot — косинус и синус наклона паттерна
 in vec2 v; out vec4 o;
-float L(vec3 c) { return dot(c, vec3(.3, .59, .11)); }
-float ell(vec4 e) { return 1. - smoothstep(.94, 1.04, length((v - e.xy) / e.zw)); }
 void main() {
   vec4 s = texture(uF, v);
   s.rgb = s.a > 0. ? s.rgb / s.a : vec3(0.);   // кадр хранится с предумноженной прозрачностью
@@ -110,49 +73,6 @@ void main() {
   float m = clamp((y - 12.) / 28., 0., 1.);
   vec3 rec = vec3(c.b) + (max(c.r, c.g) - c.b) * uCol;
   vec3 base = mix(c, rec, m * uRec) / 255.;
-
-  if ((uMode > 0 && uK > 0.) || uOrn > 0.) {
-    // складки и фактура ткани: локальная яркость относительно размытой
-    float l0 = L(textureLod(uF, v, 1.).rgb), l5 = L(textureLod(uF, v, 5.).rgb);
-    float lr = L(s.rgb), l2 = L(textureLod(uF, v, 2.5).rgb);
-    float fa = clamp(l0 / max(l5, .04), .55, 1.22) * clamp(lr / max(l2, .04), .9, 1.1);            // цветная ткань
-    float fd = clamp(1. + (l0 - l5) * 2.5, .62, 1.35) * clamp(1. + (lr - l2) * 2., .86, 1.2);       // чёрная ткань
-    float f = mix(fd, fa, m);                                                                        // + мелкое плетение
-    // Части вещи. Класс поверхности — по цвету пикселя: цветная ткань (ac) или чёрная (dk; тень под вещью не в счёт).
-    // Там, где внутренняя часть того же цвета, что и наружная (горловина футболки), её задаёт эллипс uEx.
-    // Шнурки, молнии, пуговицы, канты не попадают ни в одну часть и остаются поверх нанесения.
-    float ac = m, dk = (1. - smoothstep(110., 170., L(c))) * (1. - m) * smoothstep(.75, .95, s.a);
-    float cA = uSurf < .5 ? ac : dk, cB = uSurfB < .5 ? ac : dk;
-    float eb = uEb.z > 0. ? ell(uEb) : 1., ex = uEx.z > 0. ? ell(uEx) : 0.;
-    float mA = cA * (1. - ex), mB = max(cB * eb, ac * ex);                                           // снаружи и внутри
-    float surf = uMode == 1 ? mA : clamp(uPart.x * mA + uPart.y * mB, 0., 1.);
-    // сдвиг по рельефу: рисунок чуть «плывёт» вместе со складками
-    vec2 e = 3. / uSize;
-    vec2 g = vec2(L(textureLod(uF, v + vec2(e.x, 0.), 2.).rgb) - L(textureLod(uF, v - vec2(e.x, 0.), 2.).rgb),
-                  L(textureLod(uF, v + vec2(0., e.y), 2.).rgb) - L(textureLod(uF, v - vec2(0., e.y), 2.).rgb));
-    if (uOrn > 0.) {                 // готовый узор — нижний слой, логотип или паттерн ложатся поверх
-      vec4 po = texture(uO, v * uSize / uTileO + g * uDisp);
-      float lo = po.a * clamp(uPart.x * mA + uPart.y * mB, 0., 1.);
-      base = mix(base, clamp(po.rgb / max(po.a, .001) * pow(f, .9), 0., 1.), lo);
-    }
-    if (uMode > 0 && uK > 0.) {
-    vec4 pr; float la;
-    if (uMode == 1) {
-      vec2 q = v; q.x = uAxis + (q.x - uAxis - uShift) / uSquash;   // вещь повернулась — зона уезжает вместе с ней
-      vec3 h = uH * vec3(q, 1.); vec2 pp = h.xy / h.z;
-      float cx = 2. * pp.x - 1.;
-      pp.y -= uArc * (1. - cx * cx);
-      pp += g * uDisp;
-      vec2 d = min(pp, 1. - pp);
-      pr = texture(uP, pp); la = pr.a * smoothstep(0., .006, min(d.x, d.y));
-    } else {
-      vec2 px = v * uSize;
-      pr = texture(uT, vec2(uRot.x * px.x + uRot.y * px.y, -uRot.y * px.x + uRot.x * px.y) / uTile + g * uDisp); la = pr.a * .92;
-    }
-    la *= surf * uK;
-    base = mix(base, clamp(pr.rgb / max(pr.a, .001) * pow(f, .9), 0., 1.), la);
-    }
-  }
   o = vec4(base * s.a, s.a);
 }`;
 
@@ -170,7 +90,7 @@ void main() {
     const loc = gl.getAttribLocation(prog, "p");
     gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
     const u = {};
-    for (const name of ["uF", "uP", "uT", "uO", "uOrn", "uTileO", "uCol", "uRec", "uCut", "uH", "uArc", "uK", "uSurf", "uSurfB", "uEb", "uEx", "uPart", "uAxis", "uShift", "uSquash", "uDisp", "uMode", "uSize", "uTile", "uRot"]) u[name] = gl.getUniformLocation(prog, name);
+    for (const name of ["uF", "uCol", "uRec", "uCut"]) u[name] = gl.getUniformLocation(prog, name);
     const tex = (unit, wrapMode, mips) => {
       const t = gl.createTexture();
       gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t);
@@ -180,9 +100,9 @@ void main() {
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(4));
       return t;
     };
-    const texF = tex(0, gl.CLAMP_TO_EDGE, true), texP = tex(1, gl.CLAMP_TO_EDGE, true), texT = tex(2, gl.REPEAT, true), texO = tex(3, gl.REPEAT, true);
-    gl.uniform1i(u.uF, 0); gl.uniform1i(u.uP, 1); gl.uniform1i(u.uT, 2); gl.uniform1i(u.uO, 3);
-    return { gl, u, texF, texP, texT, texO };
+    const texF = tex(0, gl.CLAMP_TO_EDGE, true);
+    gl.uniform1i(u.uF, 0);
+    return { gl, u, texF };
   }
   function tryGL(canvas) {
     try { const G = makeGL(canvas); if (G) return G; glErrors.push("нет контекста"); }
@@ -190,7 +110,7 @@ void main() {
     return null;
   }
   // Контекст может пропасть (драйвер, нехватка видеопамяти, сон ноутбука) или не создаться с первого раза.
-  // Тогда вещь рисуется как есть, без перекраски и нанесения, — поэтому пробуем поднять WebGL заново.
+  // Тогда вещь рисуется как есть, без перекраски, — поэтому пробуем поднять WebGL заново.
   function watchGL(t, canvas) {
     canvas.addEventListener("webglcontextlost", (e) => { e.preventDefault(); t.dirty = true; });
     if (!t.G && t.glTries < GL_TRIES) setTimeout(() => { t.dirty = true; }, GL_RETRY + 50);
@@ -200,7 +120,7 @@ void main() {
     c.className = old.className; c.width = old.width; c.height = old.height; c.style.cssText = old.style.cssText;
     t.glAt = performance.now(); t.glTries++;
     t.G = tryGL(c); t.ctx = t.G ? null : c.getContext("2d");
-    t.canvas = c; t.texImg = null; t.printKey = ""; t.tileKey = ""; t.ornKey = ""; t.dirty = true;
+    t.canvas = c; t.texImg = null; t.dirty = true;
     old.replaceWith(c);
     watchGL(t, c);
   }
@@ -210,17 +130,6 @@ void main() {
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, premultiply);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
     gl.generateMipmap(gl.TEXTURE_2D);
-  }
-
-  // Матрица «кадр → зона печати» по четырём углам зоны (TL, TR, BR, BL в долях кадра).
-  function homography(q) {
-    const [[x0, y0], [x1, y1], [x2, y2], [x3, y3]] = q;
-    const dx1 = x1 - x2, dx2 = x3 - x2, sx = x0 - x1 + x2 - x3, dy1 = y1 - y2, dy2 = y3 - y2, sy = y0 - y1 + y2 - y3;
-    const den = dx1 * dy2 - dx2 * dy1, g = (sx * dy2 - dx2 * sy) / den, h = (dx1 * sy - sx * dy1) / den;
-    const a = x1 - x0 + g * x1, b = x3 - x0 + h * x3, c = x0, d = y1 - y0 + g * y1, e = y3 - y0 + h * y3, f = y0;
-    // обратная к [[a,b,c],[d,e,f],[g,h,1]]
-    const A = e - f * h, B = c * h - b, Cc = b * f - c * e, D = f * g - d, E = a - c * g, F = c * d - a * f, G = d * h - e * g, Hh = b * g - a * h, I = a * e - b * d;
-    return new Float32Array([A, D, G, B, E, Hh, Cc, F, I]);   // по столбцам, как ждёт WebGL
   }
 
   // ---------- сборка сцены ----------
@@ -257,8 +166,8 @@ void main() {
   // Кадры держим с предумноженной прозрачностью: иначе при уменьшении и сглаживании цвет прозрачных
   // пикселей затекает в контур вещи (тёмная рваная кайма, серый ореол). Шейдер делит цвет на альфу обратно.
   const bitmap = (blob, opts) => createImageBitmap(blob, { premultiplyAlpha: "premultiply", ...opts });
-  // Холст вещи поднимается сразу — из картинки, которая уже стоит на странице. Перекраска и нанесение
-  // работают с первой секунды и не ждут кадров оборота: по плохой сети те могут идти минутами.
+  // Холст вещи поднимается сразу — из картинки, которая уже стоит на странице. Перекраска работает
+  // с первой секунды и не ждёт кадров оборота: по плохой сети те могут идти минутами.
   function startTurn(node) {
     const turn = ITEMS[nodes.indexOf(node)].turn, img = node.el.querySelector("img");
     if (!turn) return;
@@ -269,9 +178,7 @@ void main() {
       canvas.width = lw; canvas.height = lh;
       const G = tryGL(canvas);
       const t = { ...turn, canvas, G, ctx: G ? null : canvas.getContext("2d"), glAt: performance.now(), glTries: 0, lw, lh, blobs: new Array(turn.n), sm: new Array(turn.n), md: new Array(turn.n), hi: new Array(turn.n),
-                  complete: false, full: false, busy: false, drop: false, hiState: 0, dirty: true, shown: null, pk: "", printKey: "", tileKey: "", tile: [1, 1], rot: [1, 0],
-                  zg: {} };
-      for (const z of ZONES[nodes.indexOf(node)]) t.zg[z.id] = { H: homography(z.quad) };
+                  complete: false, full: false, busy: false, drop: false, hiState: 0, dirty: true, shown: null, pk: "" };
       t.sm[0] = first;
       watchGL(t, canvas);
       node.turn = t;
@@ -347,11 +254,11 @@ void main() {
     for (const b of t.md) if (b) b.close();
     t.md = new Array(t.n); t.full = false; t.drop = false; t.dirty = true;
   }
-  async function loadHi(t, i) {       // кадры полного размера — только у выбранной вещи
+  async function loadHi(t) {          // кадры полного размера — только у выбранной вещи
     if (t.hiState) return;
     t.hiState = 1;
     try {
-      const ks = hiFrames(i, t.n);
+      const ks = hiFrames(t.n);
       const got = await fetchAll(ks.map((k) => frameUrl(t, "hi", k)));
       await Promise.all(ks.map(async (k, j) => { t.hi[k] = await bitmap(got[j]); }));
       if (t.hiState === 1) { t.hiState = 2; t.dirty = true; } else freeHi(t);
@@ -413,245 +320,24 @@ void main() {
     try { localStorage.setItem("izum-color", c.id); } catch (e) { /* хранилище недоступно — не страшно */ }
   }
 
-  // ---------- нанесение ----------
-  const PRINT_W = 1024, ZERO4 = [0, 0, 0, 0];
-  // Раскладки паттерна: gx, gy — шаг по горизонтали и зазор между рядами в ширинах логотипа,
-  // brick — второй ряд сдвинут на полшага, k — размер, ang — наклон, flip — второй ряд перевёрнут.
-  const PATTERNS = {
-    brick: { gx: 1.6, gy: 0.42, brick: true, k: 1, ang: 0.2 },
-    grid: { gx: 1.5, gy: 0.5, brick: false, k: 1, ang: 0 },
-    diagonal: { gx: 1.7, gy: 0.55, brick: true, k: 1.1, ang: 0.62 },
-    dense: { gx: 1.22, gy: 0.16, brick: true, k: 0.58, ang: 0.2 },
-    lines: { gx: 1.08, gy: 0.5, brick: true, k: 0.8, ang: 0 },
-    flip: { gx: 1.45, gy: 0.3, brick: true, k: 1, ang: 0, flip: true },
-  };
-  const tmp = document.createElement("canvas"), tmpX = tmp.getContext("2d");
-
-  // Логотип в нужном цвете: «как в файле», белый или чёрный; текст — контрастно к поверхности вещи.
-  function inked(i, z) {
-    let tint = C.tint;
-    if (tint === "orig" && C.mono) {               // текст — контрастно к той части вещи, куда он ложится
-      const inside = C.mode === "pattern" && C.part === 2;
-      const surf = inside ? (ITEMS[i].inner || {}).surf || "accent" : z.surf;
-      tint = surf === "dark" || S.color.lum <= 0.55 ? "white" : "black";
-    }
-    if (tint === "orig") return C.src;
-    tmp.width = C.src.width; tmp.height = C.src.height;
-    tmpX.globalCompositeOperation = "source-over";
-    tmpX.clearRect(0, 0, tmp.width, tmp.height);
-    tmpX.drawImage(C.src, 0, 0);
-    tmpX.globalCompositeOperation = "source-in";
-    tmpX.fillStyle = tint === "white" ? "#f5f5f1" : tint === "custom" ? C.ink : "#151515";
-    tmpX.fillRect(0, 0, tmp.width, tmp.height);
-    return tmp;
-  }
-  // Зона печати — отдельный холст: логотип вписывается в неё целиком и не может выйти за край.
-  const printCv = document.createElement("canvas"), printX = printCv.getContext("2d");
-  function fitLogo(i, t, z) {
-    const o = off(i, z.id), W = PRINT_W, H = Math.round(PRINT_W / t.zg[z.id].aspect);
-    const box = Math.min(1, 0.8 * C.scale);
-    const k = Math.min((W * box) / C.src.width, (H * box) / C.src.height);
-    const w = C.src.width * k, h = C.src.height * k;
-    const mx = (W - w) / 2 / W, my = (H - h) / 2 / H;        // насколько можно сдвинуть, не выходя из зоны
-    o.x = clamp(o.x, -mx, mx); o.y = clamp(o.y, -my, my);
-    return { W, H, w, h, x: W * (0.5 + o.x) - w / 2, y: H * (0.5 + o.y) - h / 2 };
-  }
-  function syncPrint(i, t, z) {
-    const key = C.ver + "|" + C.pat + "|" + z.id + "|" + (C.mono && C.tint === "orig" ? S.color.id : "");
-    if (C.mode === "logo") {
-      if (t.printKey === key) return;
-      t.printKey = key;
-      const b = fitLogo(i, t, z);
-      printCv.width = b.W; printCv.height = b.H;
-      printX.clearRect(0, 0, b.W, b.H);
-      printX.imageSmoothingQuality = "high";
-      printX.drawImage(inked(i, z), b.x, b.y, b.w, b.h);
-      upload(t.G, 1, t.G.texP, printCv, true);
-    } else {
-      if (t.tileKey === key) return;
-      t.tileKey = key;
-      // Плитка паттерна — два ряда; раскладка задаёт шаг, сдвиг второго ряда, размер и переворот.
-      const P = PATTERNS[C.pat] || PATTERNS.brick;
-      const w = t.fw * 0.15 * C.scale * P.k, h = (w * C.src.height) / C.src.width;
-      const tw = w * P.gx, rowH = h + w * P.gy, th = 2 * rowH, q = 260 / w;
-      printCv.width = Math.max(2, Math.round(tw * q)); printCv.height = Math.max(2, Math.round(th * q));
-      printX.clearRect(0, 0, printCv.width, printCv.height);
-      printX.imageSmoothingQuality = "high";
-      const src = inked(i, z), W = printCv.width, H = printCv.height, lw = w * q, lh = h * q;
-      const put = (cx, cy, flip) => {
-        printX.save(); printX.translate(cx, cy); if (flip) printX.rotate(Math.PI);
-        printX.drawImage(src, -lw / 2, -lh / 2, lw, lh); printX.restore();
-      };
-      put(W / 2, H * 0.25, false);
-      if (P.brick) { put(0, H * 0.75, P.flip); put(W, H * 0.75, P.flip); } else put(W / 2, H * 0.75, P.flip);
-      upload(t.G, 2, t.G.texT, printCv, true);
-      t.tile = [tw, th]; t.rot = [Math.cos(P.ang), Math.sin(P.ang)];
-    }
-  }
-
-  // Готовые узоры: бесшовная плитка рисуется краской ink. k — ширина плитки в долях ширины кадра.
-  const ORNS = {
-    stripe: { name: "полоска", k: 0.05, w: 64, h: 64, draw(g, ink) { g.fillStyle = ink; g.globalAlpha = 0.6; g.fillRect(0, 0, 26, 64); } },
-    dots: { name: "горох", k: 0.1, w: 128, h: 128, draw(g, ink) {
-      g.fillStyle = ink; g.globalAlpha = 0.65;
-      for (const [x, y] of [[32, 32], [96, 96]]) { g.beginPath(); g.arc(x, y, 17, 0, 7); g.fill(); }
-    } },
-    check: { name: "клетка", k: 0.11, w: 96, h: 96, draw(g, ink) { g.fillStyle = ink; g.globalAlpha = 0.36; g.fillRect(0, 0, 48, 96); g.fillRect(0, 0, 96, 48); } },
-    zigzag: { name: "зигзаг", k: 0.13, w: 128, h: 72, draw(g, ink) {
-      g.strokeStyle = ink; g.globalAlpha = 0.62; g.lineWidth = 15; g.lineJoin = "miter";
-      for (const dy of [-72, 0, 72]) { g.beginPath(); g.moveTo(-64, 96 + dy); g.lineTo(0, 54 + dy); g.lineTo(64, 12 + dy); g.lineTo(128, 54 + dy); g.lineTo(192, 96 + dy); g.stroke(); }
-    } },
-    // фирменная линия Izum: жёлтый, голубой, пурпурный, чёрный — диагональными лентами
-    line: { name: "линия Izum", k: 0.26, w: 240, h: 240, draw(g) {
-      g.lineWidth = 13; g.lineCap = "butt";
-      ["#ffed00", "#009fe3", "#e5007d", "#0d0d0d"].forEach((col, j) => {
-        g.strokeStyle = col;
-        for (const c of [-240, 0, 240, 480]) { const q = c + 90 + j * 18.4; g.beginPath(); g.moveTo(q + 20, -20); g.lineTo(q - 260, 260); g.stroke(); }
-      });
-    } },
-  };
-  const ornCv = document.createElement("canvas"), ornX = ornCv.getContext("2d");
-  function syncOrn(i, t) {
-    const O = ORNS[C.orn], pr = ITEMS[i].print || {};
-    const ink = pr.surf === "dark" || S.color.lum <= 0.55 ? "#ffffff" : "#141414";   // на чёрном и на тёмных цветах — белая краска
-    const k = C.src ? 1 : C.scale;                // пока своего рисунка нет, ползунок «Размер» управляет узором
-    const key = C.orn + "|" + ink + "|" + k;
-    if (t.ornKey === key) return;
-    t.ornKey = key;
-    ornCv.width = O.w * 2; ornCv.height = O.h * 2;
-    ornX.setTransform(2, 0, 0, 2, 0, 0); ornX.clearRect(0, 0, O.w, O.h); ornX.globalAlpha = 1;
-    ornX.save(); O.draw(ornX, ink); ornX.restore();
-    upload(t.G, 3, t.G.texO, ornCv, true);
-    const tw = t.fw * O.k * k;
-    t.otile = [tw, (tw * O.h) / O.w];
-  }
-
-  // Один кадр вещи. z — место нанесения, которое сейчас смотрит в камеру; theta — на сколько градусов
-  // вещь от него отвёрнута (со знаком).
-  function paint(i, t, img, lk, theta, z) {
+  // ---------- кадр вещи ----------
+  // Один кадр вещи: шейдер перекрашивает жёлтые пиксели в выбранный цвет.
+  function paint(t, img) {
     if (t.G && t.G.gl.isContextLost()) { t.G = null; t.ctx = null; t.glTries = Math.min(t.glTries, GL_TRIES - 3); }
     if (!t.G && (!t.ctx || (t.glTries < GL_TRIES && performance.now() - t.glAt > GL_RETRY))) resetCanvas(t);
-    if (!t.G) {                                  // нет WebGL2 — показываем вещь как есть, без перекраски и нанесения
+    if (!t.G) {                                  // нет WebGL2 — показываем вещь как есть, без перекраски
       t.ctx.clearRect(0, 0, t.canvas.width, t.canvas.height);
       t.ctx.drawImage(img, 0, 0, t.canvas.width, t.canvas.height);
       return;
     }
-    const { gl, u } = t.G, pr = z || ZONES[i][0], zg = t.zg[pr.id];
+    const { gl, u } = t.G;
     if (t.texImg !== img) { t.texImg = img; upload(t.G, 0, t.G.texF, img, false); }
-    const on = lk > 0 && C.src;
-    if (on) syncPrint(i, t, pr);
-    const orn = !!ORNS[C.orn];
-    if (orn) syncOrn(i, t);
-    gl.uniform1f(u.uOrn, orn ? 1 : 0);
-    gl.uniform2f(u.uTileO, orn ? t.otile[0] : 1, orn ? t.otile[1] : 1);
     gl.viewport(0, 0, t.canvas.width, t.canvas.height);
     gl.uniform3fv(u.uCol, S.color.t);
     gl.uniform1f(u.uRec, S.color.id === "yellow" ? 0 : 1);
     gl.uniform1f(u.uCut, t.cut || 0);
-    gl.uniform1i(u.uMode, !on ? 0 : C.mode === "pattern" ? 2 : 1);
-    gl.uniform1f(u.uK, lk * 0.97);
-    gl.uniform1f(u.uSurf, pr.surf === "dark" ? 1 : 0);
-    const inn = ITEMS[i].inner || {};
-    gl.uniform1f(u.uSurfB, inn.surf === "dark" ? 1 : 0);
-    gl.uniform4fv(u.uEb, inn.in || ZERO4);
-    gl.uniform4fv(u.uEx, inn.cut || ZERO4);
-    gl.uniform2f(u.uPart, C.part & 1 ? 1 : 0, C.part & 2 ? 1 : 0);
-    gl.uniformMatrix3fv(u.uH, false, zg.H);
-    gl.uniform1f(u.uArc, pr.arc || 0);
-    gl.uniform1f(u.uDisp, (C.mode === "pattern" ? 0.1 : 0.07) * (pr.surf === "dark" ? 0.35 : 1));   // на чёрном стёганом рельеф резкий — сдвигаем слабее
-    gl.uniform2f(u.uSize, t.fw, t.fh);
-    gl.uniform2f(u.uTile, t.tile[0], t.tile[1]);
-    gl.uniform2f(u.uRot, t.rot[0], t.rot[1]);
-    // вещь — примерно цилиндр: при повороте зона печати уезжает вбок и сжимается
-    const phi = ((pr.phi || 0) * Math.PI) / 180, a = phi + ((pr.dir || 1) * theta * Math.PI) / 180;
-    gl.uniform1f(u.uAxis, zg.axis);
-    gl.uniform1f(u.uShift, (pr.r || 0) * (Math.sin(a) - Math.sin(phi)));
-    gl.uniform1f(u.uSquash, clamp(Math.cos(a) / Math.cos(phi), 0.2, 1.7));
     gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-  }
-
-  function logoChanged() {
-    C.ver++;
-    app.dataset.logo = C.src ? "1" : "0";
-    app.dataset.pattern = C.mode === "pattern" ? "1" : "0";
-    app.dataset.orn = ORNS[C.orn] ? "1" : "0";
-    showZones(S.active);
-    $("clearBtn").textContent = C.mode === "pattern" ? "Убрать паттерн" : "Убрать логотип";
-    $("toolHint").textContent = !C.src ? (C.mode === "pattern" ? "Паттерну нужен рисунок: загрузите файл или напишите текст — он разложится по вещи."
-                                                               : "Загрузите файл или напишите название — логотип сразу ляжет в зону печати.")
-      : C.mode === "pattern" ? "Паттерн покрывает вещь целиком. Размер — ползунком или колесом мыши над вещью."
-      : "Двигайте логотип прямо на вещи — за зону печати он не выйдет. Размер — ползунком или колесом мыши.";
-  }
-
-  // Картинка → canvas: уменьшаем, у непрозрачных файлов с белым фоном убираем фон, обрезаем поля.
-  function useImage(img) {
-    const iw = img.naturalWidth || img.width || 512, ih = img.naturalHeight || img.height || 512;
-    const k = Math.min(1, 1600 / Math.max(iw, ih));
-    const cv = document.createElement("canvas");
-    cv.width = Math.max(1, Math.round(iw * k)); cv.height = Math.max(1, Math.round(ih * k));
-    const g = cv.getContext("2d", { willReadFrequently: true });
-    g.imageSmoothingQuality = "high";
-    g.drawImage(img, 0, 0, cv.width, cv.height);
-    const im = g.getImageData(0, 0, cv.width, cv.height), d = im.data, W = cv.width, H = cv.height;
-    let opaque = true;
-    for (let p = 3; p < d.length; p += 4) if (d[p] < 250) { opaque = false; break; }
-    if (opaque) {
-      // Фон убираем, только если он действительно белый: смотрим на рамку картинки.
-      // У фотографии с тёмным или цветным фоном ничего не трогаем — она ляжет прямоугольным принтом.
-      let white = 0, cnt = 0;
-      const probe = (x, y) => { const p = (y * W + x) * 4; cnt++; if (Math.min(d[p], d[p + 1], d[p + 2]) >= 244) white++; };
-      for (let x = 0; x < W; x += 3) { probe(x, 0); probe(x, H - 1); }
-      for (let y = 0; y < H; y += 3) { probe(0, y); probe(W - 1, y); }
-      if (white / cnt > 0.9) {
-        for (let p = 0; p < d.length; p += 4) {
-          const mn = Math.min(d[p], d[p + 1], d[p + 2]);
-          d[p + 3] = mn >= 250 ? 0 : mn <= 215 ? 255 : Math.round(((250 - mn) / 35) * 255);
-        }
-      }
-    }
-    let x0 = W, y0 = H, x1 = -1, y1 = -1;
-    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-      if (d[(y * W + x) * 4 + 3] > 16) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
-    }
-    if (x1 < 0) return false;                          // пустая картинка
-    g.putImageData(im, 0, 0);
-    const out = document.createElement("canvas");
-    out.width = x1 - x0 + 1; out.height = y1 - y0 + 1;
-    out.getContext("2d").drawImage(cv, x0, y0, out.width, out.height, 0, 0, out.width, out.height);
-    C.src = out; C.mono = false;
-    logoChanged();
-    return true;
-  }
-  function useFile(file) {
-    if (!file || !/^image\//.test(file.type)) return;
-    const url = URL.createObjectURL(file), img = new Image();
-    img.onload = () => { useImage(img); URL.revokeObjectURL(url); C.text = ""; $("textLogo").value = ""; if (S.active < 0) open(Math.round(S.target), CUSTOM); else setChapter(CUSTOM); };
-    img.onerror = () => { URL.revokeObjectURL(url); $("toolHint").textContent = "Не получилось прочитать файл. Подойдёт PNG, SVG или JPG."; };
-    img.src = url;
-  }
-  // Свой текст: до двух строк, выбранным шрифтом. Цвет — как у любого нанесения (авто, белый, чёрный, свой).
-  const FONTS = {
-    gotham: { css: 'italic 900 300px "Gotham Pro", Arial, sans-serif', upper: true },
-    bold: { css: '700 300px "Gotham Pro", Arial, sans-serif', upper: false },
-    serif: { css: 'italic 700 300px Georgia, "Times New Roman", serif', upper: false },
-    impact: { css: '400 300px Impact, "Arial Narrow", sans-serif', upper: true },
-  };
-  async function useText(s) {
-    C.text = s;
-    const f = FONTS[C.font] || FONTS.gotham;
-    const lines = s.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).slice(0, 2).map((l) => (f.upper ? l.toUpperCase() : l));
-    if (!lines.length) { if (C.mono) { C.src = null; logoChanged(); } return; }
-    try { await document.fonts.load(f.css, lines.join("")); } catch (e) { /* возьмём запасной шрифт */ }
-    if (C.text !== s) return;                           // пока грузился шрифт, текст уже изменили
-    const cv = document.createElement("canvas"), g = cv.getContext("2d");
-    g.font = f.css;
-    const LH = 330, w = Math.max(...lines.map((l) => g.measureText(l).width));
-    cv.width = Math.ceil(w) + 120; cv.height = LH * lines.length + 60;
-    g.font = f.css; g.textBaseline = "middle"; g.textAlign = "center"; g.fillStyle = "#141414";
-    lines.forEach((l, k) => g.fillText(l, cv.width / 2, 30 + LH * (k + 0.5)));
-    C.src = cv; C.mono = true;
-    logoChanged();
   }
 
   // ---------- геометрия ----------
@@ -685,14 +371,6 @@ void main() {
         const t = n.turn, q = n.hgt / t.oh, c = t.canvas.style;
         c.width = t.fw * q + "px"; c.height = t.fh * q + "px";
         c.left = (n.w - t.ow * q) / 2 - t.ox * q + "px"; c.top = -t.oy * q + "px";
-        // размеры зоны печати в пикселях кадра: по ним считаются пропорции холста нанесения и перетаскивание
-        const len = (a, b) => Math.hypot((a[0] - b[0]) * t.fw, (a[1] - b[1]) * t.fh);
-        for (const z of ZONES[i]) {
-          const Q = z.quad, g = t.zg[z.id];
-          g.areaW = (len(Q[0], Q[1]) + len(Q[3], Q[2])) / 2; g.areaH = (len(Q[0], Q[3]) + len(Q[1], Q[2])) / 2;
-          g.aspect = g.areaW / g.areaH;
-          g.axis = (Q[0][0] + Q[1][0] + Q[2][0] + Q[3][0]) / 4;
-        }
       }
     });
     pedTop.style.top = S.cy - S.size * PED_UP + "px";
@@ -714,7 +392,6 @@ void main() {
 
     S.pos += (S.target - S.pos) * (1 - Math.exp(-dt * 7));
     S.g += ((S.active >= 0 ? 1 : 0) - S.g) * (1 - Math.exp(-dt * 5));
-    S.flat += ((S.active >= 0 && S.chapter === CUSTOM ? 1 : 0) - S.flat) * (1 - Math.exp(-dt * 5));
 
     const heroX = S.mobile ? 0 : W * 0.19;
     const heroY = S.mobile ? -H * 0.285 : H * 0.03;
@@ -755,10 +432,10 @@ void main() {
       if (e > 0) {
         const arc = Math.sin(e * Math.PI);
         x = lerp(x, heroX, e);
-        y = lerp(y, heroY + Math.sin(t * 1.1) * 7 * (1 - S.flat * 0.7), e) - arc * H * 0.05;
+        y = lerp(y, heroY + Math.sin(t * 1.1) * 7, e) - arc * H * 0.05;
         z = lerp(z, 60, e) + arc * 300;
         sc = lerp(sc, n.heroK, e);
-        rz = lerp(rz, (-6 + Math.sin(t * 0.7) * 1.4) * (1 - S.flat), e);
+        rz = lerp(rz, -6 + Math.sin(t * 0.7) * 1.4, e);
         ry = lerp(ry, n.turn ? 0 : Math.sin(t * 0.6) * 5, e);
         op = lerp(op, 1, e);
       }
@@ -768,7 +445,7 @@ void main() {
         const tt = n.turn, mine = i === S.active || n.h > 0, want = mine || (S.active < 0 && ad < 0.6);
         if (want) { tt.drop = false; if (!tt.full && !tt.busy) decodeFull(tt); }
         else if (ad > 1.6) { if (tt.busy) tt.drop = true; else if (tt.full || tt.md.some(Boolean)) freeFull(tt); }
-        if (i === S.active) loadHi(tt, i);
+        if (i === S.active) loadHi(tt);
         else if (!mine && tt.hiState) { if (tt.hiState === 2) freeHi(tt); else tt.hiState = 3; }
         const cw = mine ? tt.fw : tt.lw, chh = mine ? tt.fh : tt.lh;      // у камеры холст в полном размере
         if (tt.canvas.width !== cw) { tt.canvas.width = cw; tt.canvas.height = chh; tt.dirty = true; }
@@ -789,25 +466,11 @@ void main() {
         // в объёме на недостающий угол — вещь вращается с первой секунды, а не стоит плоской картинкой.
         let lack = ry - (kf / tt.n) * 360; lack = mod(lack + 180, 360) - 180;
         if (kf === want) lack = 0;
-        // Логотип держится на вещи, пока его место смотрит в камеру, и растворяется при развороте.
-        // Паттерн идёт по всей вещи и виден с любой стороны.
-        let zone = null, theta = 0, lk = 0;
-        if (C.src && C.mode === "pattern") lk = 1;
-        else if (C.src) {
-          let best = 1e9;
-          for (const zz of ZONES[i]) {
-            if (!C.places[zz.id]) continue;
-            let dk = mod(kf - zz.k, tt.n); if (dk > tt.n / 2) dk -= tt.n;
-            if (Math.abs(dk) < best) { best = Math.abs(dk); zone = zz; theta = (dk / tt.n) * 360; }
-          }
-          if (zone) lk = Math.round(clamp(((zone.r ? 36 : 19) - Math.abs(theta)) / 10, 0, 1) * 20) / 20;
-        }
-        if (Math.abs(lack) > 75 && C.mode !== "pattern") lk = 0;   // довёрнутый «спиной» кадр — без зеркального логотипа
         tt.cut = Math.round(smooth(clamp(e * 1.6, 0, 1)) * 12) / 12;   // вещь летит на тёмную сцену — ореол уходит
-        const pk = S.color.id + "|" + tt.cut + "|" + (ORNS[C.orn] ? C.orn + C.ver : "") + "|" + (lk ? C.ver + ":" + lk + ":" + kf + ":" + (zone ? zone.id : "") : "");
+        const pk = S.color.id + "|" + tt.cut;
         if (img && (tt.dirty || img !== tt.shown || pk !== tt.pk)) {
           tt.shown = img; tt.dirty = false; tt.pk = pk;
-          paint(i, tt, img, lk, theta, zone);
+          paint(tt, img);
         }
         n.el.style.transform = `translate3d(${x}px,${y}px,${z}px) rotateZ(${rz}deg)${lack ? ` rotateY(${lack}deg)` : ""} scale(${sc})`;
       } else n.el.style.transform = `translate3d(${x}px,${y}px,${z}px) rotateZ(${rz}deg) rotateY(${ry}deg) scale(${sc})`;
@@ -843,9 +506,6 @@ void main() {
     $("dText").textContent = it.text;
     $("dKit").innerHTML = METHODS.map((k) => `<li>${k}</li>`).join("");
     $("dSpecs").innerHTML = it.specs.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("");
-    const names = (it.inner && it.inner.names) || ["Снаружи", "Внутри"];      // у каждой вещи свои названия частей
-    $("segPart").querySelector('[data-v="1"]').textContent = names[0];
-    $("segPart").querySelector('[data-v="2"]').textContent = names[1];
   }
 
   // ---------- действия ----------
@@ -859,37 +519,11 @@ void main() {
     app.dataset.chapter = c;
     $("more").style.visibility = c === CHAPTERS - 1 ? "hidden" : "visible";
   }
-  // В примерке вещь стоит тем местом к камере, которое сейчас настраивается.
-  const zoneAngle = (i) => (curZone(i).k / ITEMS[i].turn.n) * 360;
-  const chAngle = (c, i) => (c === CUSTOM ? zoneAngle(i) : CH_ANGLE[c]);
   function setChapter(c) {
     c = clamp(c, 0, CHAPTERS - 1);
     const n = nodes[S.active];
-    if (n && c !== S.chapter) n.rotT += (c > S.chapter ? 360 : -360) + chAngle(c, S.active) - chAngle(S.chapter, S.active);
+    if (n && c !== S.chapter) n.rotT += (c > S.chapter ? 360 : -360) + CH_ANGLE[c] - CH_ANGLE[S.chapter];
     showChapter(c);
-  }
-
-  // Выбор места: вещь поворачивается к нему кратчайшим путём, логотип появляется там.
-  // Повторное нажатие на текущее место убирает логотип оттуда.
-  function setZone(id) {
-    const i = S.active;
-    if (i >= 0 && !ZONES[i].some((z) => z.id === id)) return;
-    if (id === C.zone && i >= 0) C.places[id] = !C.places[id];
-    else {
-      const before = i >= 0 ? zoneAngle(i) : 0;
-      C.zone = id; C.places[id] = true;
-      if (i >= 0 && S.chapter === CUSTOM) nodes[i].rotT += mod(zoneAngle(i) - before + 180, 360) - 180;
-    }
-    logoChanged();
-  }
-  function showZones(i) {
-    $("segZone").querySelectorAll("button").forEach((b) => {
-      const has = i >= 0 && ZONES[i].some((z) => z.id === b.dataset.v);
-      b.hidden = !has;
-      b.classList.toggle("on", b.dataset.v === curZone(Math.max(i, 0)).id);
-      b.classList.toggle("has", !!C.places[b.dataset.v]);
-    });
-    app.dataset.zones = i >= 0 && ZONES[i].length > 1 ? "1" : "0";
   }
 
   function release(i) {
@@ -898,17 +532,15 @@ void main() {
   }
 
   function open(i, ch = 0) {
-    i = mod(i, N);
+    i = mod(i, N); ch = clamp(ch, 0, CHAPTERS - 1);
     if (S.active === i) { setChapter(ch); return; }
     if (S.active >= 0) release(S.active);
     S.target = Math.round(S.pos + wrap(i - S.pos));
     S.active = i;
     app.dataset.body = ITEMS[i].print && ITEMS[i].print.surf === "dark" ? "dark" : "light";   // чёрной вещи нужна подсветка сильнее
-    if (!ZONES[i].some((z) => z.id === C.zone)) C.zone = "front";   // у этой вещи такого места нет
     const n = nodes[i];
-    n.rotT = Math.round(n.rot / 360) * 360 + 360 + chAngle(ch, i);
+    n.rotT = Math.round(n.rot / 360) * 360 + 360 + CH_ANGLE[ch];
     fillPanel(i);
-    showZones(i);
     showChapter(ch);
     app.dataset.mode = "detail";
     touched();
@@ -920,76 +552,6 @@ void main() {
     S.active = -1;
     app.dataset.mode = "browse";
   }
-
-  // ---------- заявка с макетом ----------
-  function mockup() {
-    const cv = document.createElement("canvas");
-    cv.width = cv.height = 1400;
-    const g = cv.getContext("2d");
-    g.fillStyle = S.color.hex; g.fillRect(0, 0, 1400, 1400);
-    const glow = g.createRadialGradient(700, 670, 0, 700, 670, 670);
-    glow.addColorStop(0, "rgba(255,255,255,.9)"); glow.addColorStop(1, "rgba(255,255,255,0)");
-    g.fillStyle = glow; g.fillRect(0, 0, 1400, 1400);
-    const i = S.active, t = nodes[i] && nodes[i].turn;
-    if (t) {
-      const z = curZone(i), img = frameOf(t, C.mode === "logo" && C.places[z.id] ? z.k : 0, true);
-      if (img) paint(i, t, img, C.src ? 1 : 0, 0, z);   // кадр выбранного места; рисуем и сразу читаем, пока буфер WebGL не сброшен
-      const k = Math.min(1100 / t.fw, 1100 / t.fh);
-      g.imageSmoothingQuality = "high";
-      g.drawImage(t.canvas, (1400 - t.fw * k) / 2, (1400 - t.fh * k) / 2, t.fw * k, t.fh * k);
-      t.dirty = true;
-    }
-    return cv;
-  }
-  const order = $("lead");
-  let shotBlob = null;
-  function openOrder() {
-    if (S.active < 0) return;
-    const it = ITEMS[S.active], cv = mockup();
-    const url = cv.toDataURL("image/png");
-    $("leadImg").src = url;
-    $("leadSave").href = url;
-    cv.toBlob((b) => { shotBlob = b; });
-    const where = ZONES[S.active].filter((z) => C.places[z.id]).map((z) => PLACE_NAMES[z.id].toLowerCase()).join(", ");
-    const ornName = ORNS[C.orn] ? "узор «" + ORNS[C.orn].name + "»" : "";
-    const how = (!C.src ? (ornName || "без нанесения") : (C.mode === "pattern" ? "паттерн" : "логотип" + (where ? ": " + where : "")) + (ornName ? ", " + ornName : ""));
-    $("leadSum").textContent = `${it.name} · ${S.color.name.toLowerCase()} · ${how}`;
-    order.hidden = false;
-    document.documentElement.style.overflow = "hidden";   // страница под окном не прокручивается
-    order.querySelector("input").focus({ preventScroll: true });
-  }
-  const closeOrder = () => { order.hidden = true; document.documentElement.style.overflow = ""; };
-  $("leadBtn").addEventListener("click", openOrder);
-  $("leadX").addEventListener("click", closeOrder);
-  order.addEventListener("pointerdown", (ev) => { if (ev.target === order) closeOrder(); });
-  $("leadForm").addEventListener("submit", async (ev) => {
-    ev.preventDefault();
-    const f = new FormData(ev.target), it = ITEMS[S.active];
-    const lines = [
-      "Здравствуйте! Хочу получить расчёт.",
-      `Изделие: ${it.name}`,
-      `Цвет: ${S.color.name.toLowerCase()}`,
-      `Нанесение: ${!C.src ? "нет" : C.mode === "pattern" ? "паттерн" : "логотип (" + ZONES[S.active].filter((z) => C.places[z.id]).map((z) => PLACE_NAMES[z.id].toLowerCase()).join(", ") + ")"}${ORNS[C.orn] ? "; узор: " + ORNS[C.orn].name : ""}`,
-      f.get("qty") ? `Тираж: ${f.get("qty")}` : "",
-      f.get("company") ? `Компания: ${f.get("company")}` : "",
-      `Имя: ${f.get("name")}`,
-      `Телефон: ${f.get("phone")}`,
-    ].filter(Boolean);
-    // Когда появится приём заявок на сервере, достаточно задать window.IZUM_LEAD_ENDPOINT —
-    // туда уйдут поля формы и картинка макета. Пока его нет, заявка открывается в WhatsApp.
-    if (window.IZUM_LEAD_ENDPOINT) {
-      f.append("item", it.name); f.append("color", S.color.name);
-      if (shotBlob) f.append("mockup", shotBlob, "izum-maket.png");
-      const note = $("leadNote");
-      try {
-        const r = await fetch(window.IZUM_LEAD_ENDPOINT, { method: "POST", body: f });
-        if (!r.ok) throw new Error(r.status);
-        note.textContent = "Заявка отправлена. Менеджер свяжется с вами в рабочее время.";
-      } catch (e) { note.textContent = "Не получилось отправить заявку. Напишите нам в WhatsApp: +7 (777) 173 74 75."; }
-      return;
-    }
-    window.open(`https://wa.me/${WHATSAPP}?text=${encodeURIComponent(lines.join("\n"))}`, "_blank", "noopener");
-  });
 
   // ---------- ввод ----------
   let wheelLock = 0;
@@ -1009,10 +571,6 @@ void main() {
     if (pan && pan.scrollHeight > pan.clientHeight + 1) return;
     ev.preventDefault();
     const delta = horiz ? ev.deltaX : ev.deltaY;
-    if (S.chapter === CUSTOM && C.src && pick(ev.clientX, ev.clientY) === S.active) {   // над вещью — размер нанесения
-      setScale(C.scale * Math.exp(-delta * 0.0016));
-      return;
-    }
     if (Math.abs(delta) < 4 || now < wheelLock) return;
     wheelLock = now + 650;
     const c = S.chapter + (delta > 0 ? 1 : -1);
@@ -1038,48 +596,35 @@ void main() {
   stage.addEventListener("pointerdown", (ev) => {
     if (ev.button !== 0) return;
     const hit = pick(ev.clientX, ev.clientY);
-    drag = { x: ev.clientX, y: ev.clientY, start: S.target, moved: false, hit, id: ev.pointerId, logo: null };
-    if (S.active >= 0 && S.chapter === CUSTOM && C.src && C.mode === "logo" && hit === S.active) {
-      const o = off(S.active, curZone(S.active).id);
-      drag.logo = { x: o.x, y: o.y };
-      stage.classList.add("moving");
-    }
+    drag = { x: ev.clientX, y: ev.clientY, start: S.target, moved: false, hit, id: ev.pointerId };
     stage.setPointerCapture(ev.pointerId);
   });
   stage.addEventListener("pointermove", (ev) => {
     if (!drag) return;
     const dx = ev.clientX - drag.x, dy = ev.clientY - drag.y;
     if (!drag.moved && Math.hypot(dx, dy) > 7) {
-      if (!drag.logo && S.active < 0 && Math.abs(dy) > Math.abs(dx) * 1.3 && ev.pointerType !== "mouse") { drag = null; return; }   // вертикальный свайп — прокрутка страницы
+      if (S.active < 0 && Math.abs(dy) > Math.abs(dx) * 1.3 && ev.pointerType !== "mouse") { drag = null; return; }   // вертикальный свайп — прокрутка страницы
       drag.moved = true; touched();
-      if (!drag.logo) stage.classList.add("dragging");
+      stage.classList.add("dragging");
     }
     if (!drag.moved) return;
-    if (drag.logo) {                         // логотип едет за курсором внутри зоны печати
-      const i = S.active, t = nodes[i].turn;
-      const z = curZone(i), g = t.zg[z.id], r = t.canvas.getBoundingClientRect(), o = off(i, z.id);
-      o.x = drag.logo.x + (dx / r.width) * (t.fw / g.areaW);
-      o.y = drag.logo.y + (dy / r.height) * (t.fh / g.areaH);
-      fitLogo(i, t, z);                      // не даём выйти за край зоны
-      C.ver++;
-    } else if (S.active < 0) S.target = drag.start - dx / (S.R * STEP);
+    if (S.active < 0) S.target = drag.start - dx / (S.R * STEP);
   });
   stage.addEventListener("mousemove", (ev) => {
     if (drag) return;
     const hit = pick(ev.clientX, ev.clientY);
-    stage.style.cursor = hit < 0 ? "" : hit === S.active && S.chapter === CUSTOM && C.src && C.mode === "logo" ? "move" : "pointer";
+    stage.style.cursor = hit < 0 ? "" : "pointer";
   });
   const endDrag = (ev) => {
     if (!drag) return;
     const d = drag; drag = null;
-    stage.classList.remove("dragging", "moving");
-    if (d.logo) return;
+    stage.classList.remove("dragging");
     if (d.moved) {
       if (S.active >= 0) { const dx = ev.clientX - d.x; if (Math.abs(dx) > 60) open(S.active + (dx < 0 ? 1 : -1), S.chapter); }
       else S.target = Math.round(S.target);
     } else if (d.hit >= 0) {
       if (S.active !== d.hit) open(d.hit);
-      else if (S.chapter !== CUSTOM) close();
+      else close();
     }
   };
   stage.addEventListener("pointerup", endDrag);
@@ -1087,7 +632,6 @@ void main() {
 
   window.addEventListener("keydown", (ev) => {
     const k = ev.key;
-    if (!order.hidden) { if (k === "Escape") closeOrder(); return; }
     if (!S.visible || ev.target.closest("input, select, textarea")) return;
     if (S.active >= 0) {
       if (k === "Escape") close();
@@ -1104,8 +648,7 @@ void main() {
 
   $("prev").addEventListener("click", () => go(-1));
   $("next").addEventListener("click", () => go(1));
-  $("openBtn").addEventListener("click", () => open(Math.round(S.target), CUSTOM));
-  $("tryBtn").addEventListener("click", () => setChapter(CUSTOM));
+  $("openBtn").addEventListener("click", () => open(Math.round(S.target)));
   $("back").addEventListener("click", close);
   $("more").addEventListener("click", () => setChapter(S.chapter + 1));
   $("dPrev").addEventListener("click", () => open(S.active - 1, S.chapter));
@@ -1116,56 +659,6 @@ void main() {
   document.querySelectorAll("[data-swatches]").forEach((box) => {
     box.innerHTML = COLORS.map((c) => `<button type="button" data-id="${c.id}" style="--c:${c.hex}" title="${c.name}" aria-label="${c.name}"></button>`).join("");
     box.addEventListener("click", (ev) => { const b = ev.target.closest("button"); if (b) { setColor(b.dataset.id); touched(); } });
-  });
-
-  // примерка
-  const sizeIn = $("size");
-  function setScale(v) { C.scale = clamp(v, 0.3, 1.25); sizeIn.value = Math.round(C.scale * 100); C.ver++; }
-  sizeIn.addEventListener("input", () => { C.scale = sizeIn.value / 100; C.ver++; });
-  $("file").addEventListener("change", (ev) => { useFile(ev.target.files[0]); ev.target.value = ""; });
-  $("textLogo").addEventListener("input", (ev) => useText(ev.target.value));
-  const seg = (id, key) => $(id).addEventListener("click", (ev) => {
-    const b = ev.target.closest("button"); if (!b) return;
-    C[key] = b.dataset.v;
-    $(id).querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b));
-    // выбрали «Логотип» или «Паттерн», а нанесение убрано — возвращаем последнее, иначе режим включается впустую
-    if (key === "mode" && !C.src && C.last) { C.src = C.last.src; C.mono = C.last.mono; C.text = C.last.text; $("textLogo").value = C.text; }
-    logoChanged();
-    // рисунка ещё не было — кладём образец, чтобы раскладки было видно сразу; его заменит свой файл или текст
-    if (key === "mode" && !C.src) { $("textLogo").value = "ВАШ ЛОГО"; useText("ВАШ ЛОГО"); }
-  });
-  seg("segMode", "mode"); seg("segTint", "tint"); seg("segPat", "pat"); seg("segOrn", "orn");
-  $("segZone").addEventListener("click", (ev) => { const b = ev.target.closest("button"); if (b) setZone(b.dataset.v); });
-  $("segPart").addEventListener("click", (ev) => {              // маска паттерна: снаружи / внутри / везде
-    const b = ev.target.closest("button"); if (!b) return;
-    C.part = +b.dataset.v;
-    $("segPart").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b));
-    logoChanged();
-  });
-  $("segFont").addEventListener("click", (ev) => {
-    const b = ev.target.closest("button"); if (!b) return;
-    C.font = b.dataset.v;
-    $("segFont").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b));
-    if (C.text) useText(C.text);
-  });
-  $("ink").addEventListener("input", (ev) => {                  // свой цвет нанесения
-    C.ink = ev.target.value; C.tint = "custom";
-    $("segTint").querySelectorAll("button").forEach((x) => x.classList.remove("on"));
-    $("ink").parentElement.classList.add("on");
-    logoChanged();
-  });
-  $("segTint").addEventListener("click", () => $("ink").parentElement.classList.remove("on"));
-  $("clearBtn").addEventListener("click", () => { if (C.src) C.last = { src: C.src, mono: C.mono, text: C.text }; C.src = null; C.text = ""; $("textLogo").value = ""; C.off = ITEMS.map(() => ({})); C.places = { front: true, back: false, sleeve: false }; setZone("front"); C.places.front = true; logoChanged(); });
-
-  // файл можно бросить прямо на первый экран
-  let dropDepth = 0;
-  app.addEventListener("dragenter", (ev) => { if (ev.dataTransfer && [...ev.dataTransfer.types].includes("Files")) { dropDepth++; app.classList.add("dropping"); } });
-  app.addEventListener("dragleave", () => { if (--dropDepth <= 0) { dropDepth = 0; app.classList.remove("dropping"); } });
-  app.addEventListener("dragover", (ev) => { if (ev.dataTransfer && [...ev.dataTransfer.types].includes("Files")) ev.preventDefault(); });
-  app.addEventListener("drop", (ev) => {
-    if (!ev.dataTransfer || !ev.dataTransfer.files.length) return;
-    ev.preventDefault(); dropDepth = 0; app.classList.remove("dropping");
-    useFile(ev.dataTransfer.files[0]);
   });
 
   if ("IntersectionObserver" in window) new IntersectionObserver((es) => { S.visible = es[0].isIntersecting; }).observe(app);
@@ -1179,7 +672,7 @@ void main() {
   const calm = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
   if (!calm) setInterval(() => {
     const now = performance.now();
-    if (S.active >= 0 || !S.visible || document.hidden || order.classList.contains("on") || now < autoAt) return;
+    if (S.active >= 0 || !S.visible || document.hidden || now < autoAt) return;
     S.target = Math.round(S.target) + 1; autoAt = now + AUTO_STEP;
   }, 300);
   window.addEventListener("resize", layout);
@@ -1191,19 +684,10 @@ void main() {
   let saved = null;
   try { saved = localStorage.getItem("izum-color"); } catch (e) { /* нет доступа к хранилищу */ }
   setColor(saved || COLORS[0].id);
-  logoChanged();
   layout();
   nodes.forEach(startTurn);
   requestAnimationFrame(frame);
 
-  // Для проверки из консоли. grid() кладёт в зону печати разметочную сетку — по ней подгоняются углы зоны в data.js.
-  function grid() {
-    const cv = document.createElement("canvas"); cv.width = 800; cv.height = 800;
-    const g = cv.getContext("2d");
-    for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) { g.fillStyle = (x + y) % 2 ? "#e6007e" : "#ffffff"; g.fillRect(x * 100, y * 100, 100, 100); }
-    g.strokeStyle = "#000"; g.lineWidth = 16; g.strokeRect(8, 8, 784, 784);
-    g.beginPath(); g.moveTo(400, 0); g.lineTo(400, 800); g.moveTo(0, 400); g.lineTo(800, 400); g.lineWidth = 6; g.stroke();
-    C.src = cv; C.mono = false; C.scale = 1.25; logoChanged();
-  }
-  window.izumHero = { open, close, go, setChapter, setColor, setZone, useText, useImage, grid, state: S, custom: C, nodes, glErrors };
+  // Для проверки из консоли.
+  window.izumHero = { open, close, go, setChapter, setColor, state: S, nodes, glErrors };
 })();

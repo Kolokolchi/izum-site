@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="site.css?v=1113p">
 </head>
 <body>
-  <!-- ================= ПЕРВЫЙ ЭКРАН: слайдер-примерочная ================= -->
+  <!-- ================= ПЕРВЫЙ ЭКРАН: слайдер ================= -->
   <section class="app" id="app" data-mode="browse" data-chapter="0">
     <div class="bg bg-studio"></div>
     <div class="bg bg-flood" id="flood"></div>
@@ -48,7 +48,7 @@
         <div class="caption-set" id="capSet"></div>
         <p class="caption-name" id="capName"></p>
         <div class="rail izum-line"><i id="railDot"></i></div>
-        <button class="open-btn" id="openBtn">Примерить свой логотип</button>
+        <button class="open-btn" id="openBtn">Материалы и характеристики</button>
         <div class="swatches" data-swatches aria-label="Цвет"></div>
       </div>
     </div>
@@ -62,92 +62,10 @@
           <section class="chapter" data-ch="0">
             <p class="lead" id="dText"></p>
             <div class="kit"><span>Нанесение</span><ul id="dKit"></ul></div>
-            <button class="try" id="tryBtn">Примерить свой логотип<svg viewBox="0 0 24 24"><path d="M9 4l8 8-8 8"/></svg></button>
           </section>
           <section class="chapter" data-ch="1">
             <h3>Характеристики</h3>
             <dl class="specs" id="dSpecs"></dl>
-          </section>
-          <section class="chapter" data-ch="2">
-            <h3>Ваш логотип</h3>
-            <div class="tool">
-              <div class="tool-row">
-                <label class="upload" id="drop">
-                  <input type="file" id="file" accept="image/png,image/jpeg,image/webp,image/svg+xml">
-                  <b>Загрузить файл</b><small>PNG, SVG, JPG — или перетащите сюда</small>
-                </label>
-                <div class="text-box">
-                  <textarea class="text-logo" id="textLogo" rows="2" maxlength="44" placeholder="или напишите свой текст" autocomplete="off"></textarea>
-                  <div class="seg seg-font" id="segFont" role="group" aria-label="Шрифт">
-                    <button data-v="gotham" class="on" style="font: italic 900 13px 'Gotham Pro', Arial, sans-serif">АА</button>
-                    <button data-v="bold" style="font: 700 13px 'Gotham Pro', Arial, sans-serif">Аа</button>
-                    <button data-v="serif" style="font: italic 700 14px Georgia, serif">Аа</button>
-                    <button data-v="impact" style="font: 400 14px Impact, 'Arial Narrow', sans-serif">АА</button>
-                  </div>
-                </div>
-              </div>
-              <div class="tool-row">
-                <div class="seg" id="segMode" role="group" aria-label="Способ">
-                  <button data-v="logo" class="on">Логотип</button>
-                  <button data-v="pattern">Паттерн</button>
-                </div>
-                <span class="tint-group">
-                  <div class="seg" id="segTint" role="group" aria-label="Цвет нанесения">
-                    <button data-v="orig" class="on">Авто</button>
-                    <button data-v="white">Белый</button>
-                    <button data-v="black">Чёрный</button>
-                  </div>
-                  <label class="ink" title="Свой цвет нанесения"><input type="color" id="ink" value="#e5007d" aria-label="Свой цвет нанесения"></label>
-                </span>
-              </div>
-              <div class="tool-row zone-row">
-                <span class="tool-label">Место</span>
-                <div class="seg" id="segZone" role="group" aria-label="Место нанесения">
-                  <button data-v="front" class="on has">Спереди</button>
-                  <button data-v="back">Спина</button>
-                  <button data-v="sleeve">Рукав</button>
-                </div>
-              </div>
-              <div class="tool-row">
-                <span class="tool-label">Узор</span>
-                <div class="seg seg-pat" id="segOrn" role="group" aria-label="Готовый узор">
-                  <button data-v="none" class="on">Нет</button>
-                  <button data-v="stripe">Полоска</button>
-                  <button data-v="dots">Горох</button>
-                  <button data-v="check">Клетка</button>
-                  <button data-v="zigzag">Зигзаг</button>
-                  <button data-v="line">Линия Izum</button>
-                </div>
-              </div>
-              <div class="tool-row part-row">
-                <span class="tool-label">Где печатать</span>
-                <div class="seg" id="segPart" role="group" aria-label="Где печатать паттерн">
-                  <button data-v="1" class="on">Снаружи</button>
-                  <button data-v="2">Внутри</button>
-                  <button data-v="3">Везде</button>
-                </div>
-              </div>
-              <div class="tool-row pat-row">
-                <div class="seg seg-pat" id="segPat" role="group" aria-label="Раскладка паттерна">
-                  <button data-v="brick" class="on">Шахматка</button>
-                  <button data-v="grid">Сетка</button>
-                  <button data-v="diagonal">Диагональ</button>
-                  <button data-v="dense">Плотный</button>
-                  <button data-v="lines">Строки</button>
-                  <button data-v="flip">Перевёртыш</button>
-                </div>
-              </div>
-              <label class="range"><span>Размер</span><input type="range" id="size" min="30" max="125" value="100"></label>
-              <div class="tool-row">
-                <span class="tool-label">Цвет вещи</span>
-                <div class="swatches" data-swatches aria-label="Цвет"></div>
-              </div>
-              <p class="tool-hint" id="toolHint">Логотип можно двигать прямо на вещи.</p>
-              <div class="tool-row">
-                <button class="lead-btn" id="leadBtn">Получить расчёт</button>
-                <button class="ghost-btn" id="clearBtn">Убрать логотип</button>
-              </div>
-            </div>
           </section>
         </div>
         <div class="panel-nav">
@@ -158,7 +76,6 @@
       <nav class="dots" id="dots" aria-label="Разделы">
         <button data-ch="0" aria-label="Описание"><i></i><span>Описание</span></button>
         <button data-ch="1" aria-label="Характеристики"><i></i><span>Характеристики</span></button>
-        <button data-ch="2" aria-label="Ваш логотип"><i></i><span>Ваш логотип</span></button>
       </nav>
       <button class="arrow arrow-prev d-arrow" id="dPrev" aria-label="Предыдущая вещь"><svg viewBox="0 0 24 24"><path d="M15 4l-8 8 8 8"/></svg></button>
       <button class="arrow arrow-next d-arrow" id="dNext" aria-label="Следующая вещь"><svg viewBox="0 0 24 24"><path d="M9 4l8 8-8 8"/></svg></button>
@@ -166,28 +83,6 @@
 
     <div class="hint" id="hint">Перетаскивайте очередь · нажмите на вещь · выберите цвет</div>
   </section>
-
-  <!-- ================= ЗАЯВКА С МАКЕТОМ ================= -->
-  <div class="order" id="lead" hidden>
-    <div class="lead-box" role="dialog" aria-modal="true" aria-labelledby="leadTitle">
-      <button class="lead-x" id="leadX" aria-label="Закрыть">×</button>
-      <div class="lead-shot"><img id="leadImg" alt="Макет"><p id="leadSum"></p></div>
-      <form class="lead-form" id="leadForm">
-        <h2 id="leadTitle">Расчёт по вашему макету</h2>
-        <p>Менеджер получит вещь, цвет и картинку с примеркой и вернётся с расчётом.</p>
-        <input name="name" placeholder="Имя*" required autocomplete="name">
-        <input name="phone" type="tel" placeholder="Телефон*" required autocomplete="tel">
-        <input name="company" placeholder="Компания" autocomplete="organization">
-        <select name="qty" aria-label="Тираж">
-          <option value="">Тираж</option>
-          <option>до 50 шт.</option><option>50–200 шт.</option><option>200–1000 шт.</option><option>больше 1000 шт.</option>
-        </select>
-        <button type="submit">Отправить в WhatsApp</button>
-        <a id="leadSave" download="izum-maket.png">Сохранить картинку макета</a>
-        <small id="leadNote">Откроется WhatsApp с готовым текстом заявки. Картинку макета прикрепите к сообщению — она сохранится по ссылке выше.</small>
-      </form>
-    </div>
-  </div>
 
   <!-- ================= ЧЕРНОВИК РАЗДЕЛОВ ================= -->
   <main>
@@ -269,6 +164,6 @@
   </main>
 
   <script src="data.js?v=1113p"></script>
-  <script src="hero.js?v=1113p"></script>
+  <script src="hero.js?v=1114a"></script>
 </body>
 </html>
