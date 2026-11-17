@@ -48,13 +48,32 @@
   const VS = `#version 300 es
 in vec2 p; out vec2 v;
 void main() { v = vec2(p.x * .5 + .5, .5 - p.y * .5); gl_Position = vec4(p, 0., 1.); }`;
+  // Перекраска — перенос светлоты в OKLab, та же формула, что в tone.js (там же почему так, а не заменой канала).
   const FS = `#version 300 es
 precision highp float;
 uniform sampler2D uF;              // кадр вещи
-uniform vec3 uCol;                 // выбранный цвет
+uniform vec4 uTone;                // выбранный цвет: OKLab (L, a, b) и показатель контраста g — IZUM_TONE.target()
 uniform float uRec;                // 1 — перекрашивать
 uniform float uCut;                // 1 — тёмная сцена: слабый ореол вокруг вещи срезается
 in vec2 v; out vec4 o;
+const float LREF = .8809;          // светлота OKLab цвета #FFD400 — в нём сняты вещи
+vec3 lin(vec3 c) { return mix(c / 12.92, pow((c + .055) / 1.055, vec3(2.4)), step(.04045, c)); }
+vec3 enc(vec3 c) { c = clamp(c, 0., 1.); return mix(c * 12.92, 1.055 * pow(c, vec3(1. / 2.4)) - .055, step(.0031308, c)); }
+float okL(vec3 c) {
+  vec3 l = lin(c);
+  vec3 lms = pow(vec3(dot(l, vec3(.4122214708, .5363325363, .0514459929)), dot(l, vec3(.2119034982, .6806995451, .1073969566)),
+                      dot(l, vec3(.0883024619, .2817188376, .6299787005))), vec3(1. / 3.));
+  return dot(lms, vec3(.2104542553, .7936177850, -.0040720468));
+}
+vec3 tone(vec3 c) {
+  float q = max(okL(c) / LREF, 1e-4), L0 = uTone.x, g = uTone.w;
+  float Lo = q <= 1. ? L0 * pow(q, g) : L0 + (1. - L0) * (1. - pow(2. - min(q, 2.), g));
+  vec2 ab = uTone.yz * (Lo <= L0 ? Lo / L0 : (1. - Lo) / max(1. - L0, 1e-3));
+  vec3 p = vec3(Lo + .3963377774 * ab.x + .2158037573 * ab.y, Lo - .1055613458 * ab.x - .0638541728 * ab.y, Lo - .0894841775 * ab.x - 1.2914855480 * ab.y);
+  p = p * p * p;
+  return enc(vec3(dot(p, vec3(4.0767416621, -3.3077115913, .2309699292)), dot(p, vec3(-1.2684380046, 2.6097574011, -.3413193965)),
+                  dot(p, vec3(-.0041960863, -.7034186147, 1.7076147010))));
+}
 void main() {
   vec4 s = texture(uF, v);
   s.rgb = s.a > 0. ? s.rgb / s.a : vec3(0.);   // кадр хранится с предумноженной прозрачностью
@@ -66,13 +85,10 @@ void main() {
   // на тёмной сцене — светящиеся квадраты, поэтому там всё слабее полупрозрачного края убираем.
   s.a *= mix(1., smoothstep(.24, .62, s.a), uCut);
   if (s.a < .004) { o = vec4(0.); return; }
-  vec3 c = s.rgb * 255.;
-  // Вещи сняты в чёрном с жёлтым. Пиксель раскладывается на «белую» часть (канал B) и «жёлтую»
-  // (max(R,G) − B); жёлтая заменяется выбранным цветом.
-  float y = (c.r + c.g) * .5 - c.b;
-  float m = clamp((y - 12.) / 28., 0., 1.);
-  vec3 rec = vec3(c.b) + (max(c.r, c.g) - c.b) * uCol;
-  vec3 base = mix(c, rec, m * uRec) / 255.;
+  vec3 c = clamp(s.rgb, 0., 1.);
+  // Вещи сняты в чёрном с жёлтым: m — доля жёлтого в пикселе (на краях полос и швов он смешан с чёрным)
+  float m = clamp((((c.r + c.g) * .5 - c.b) * 255. - 12.) / 28., 0., 1.) * uRec;
+  vec3 base = m > 0. ? mix(c, tone(c), m) : c;
   o = vec4(base * s.a, s.a);
 }`;
 
@@ -90,7 +106,7 @@ void main() {
     const loc = gl.getAttribLocation(prog, "p");
     gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
     const u = {};
-    for (const name of ["uF", "uCol", "uRec", "uCut"]) u[name] = gl.getUniformLocation(prog, name);
+    for (const name of ["uF", "uTone", "uRec", "uCut"]) u[name] = gl.getUniformLocation(prog, name);
     const tex = (unit, wrapMode, mips) => {
       const t = gl.createTexture();
       gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t);
@@ -162,7 +178,10 @@ void main() {
   // Три набора: sm — кадры около исходной позы в четверть размера (хватает для очереди);
   // md — весь оборот в половинном размере (у вещи в центре и у выбранной);
   // hi — первые кадры в полном размере (выбранная вещь, когда она стоит у камеры).
-  const frameUrl = (turn, tier, k) => `${turn.dir}/${tier}/${String(k).padStart(3, "0")}.webp`;
+  // У вещей, чей оборот достроен зеркалом (data.js: mirror), кадры второй половины заменены — метка в адресе,
+  // чтобы браузер не взял из кэша прежние кадры «качелей».
+  const BUST = Object.fromEntries(ITEMS.filter((it) => it.turn).map((it) => [it.turn.dir, it.mirror ? `?m=${it.mirror}` : it.compose ? `?c=${it.compose}` : ""]));
+  const frameUrl = (turn, tier, k) => `${turn.dir}/${tier}/${String(k).padStart(3, "0")}.webp${BUST[turn.dir] || ""}`;
   // Кадры держим с предумноженной прозрачностью: иначе при уменьшении и сглаживании цвет прозрачных
   // пикселей затекает в контур вещи (тёмная рваная кайма, серый ореол). Шейдер делит цвет на альфу обратно.
   const bitmap = (blob, opts) => createImageBitmap(blob, { premultiplyAlpha: "premultiply", ...opts });
@@ -290,7 +309,7 @@ void main() {
     const c = COLORS.find((x) => x.id === id) || COLORS[0];
     const rgb = hexRgb(c.hex);
     const lum = (0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]) / 255;
-    S.color = { ...c, t: rgb.map((v) => v / 255), lum };
+    S.color = { ...c, t: rgb.map((v) => v / 255), lum, tone: window.IZUM_TONE.target(c.hex) };
     // Текст поверх акцента — тот из двух (чёрный или белый), у которого выше контраст по WCAG. Прежний порог
     // яркости давал белый текст на оранжевом, розовом и зелёном с контрастом 2,9–3,4 при норме 4,5.
     const lin = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
@@ -347,7 +366,8 @@ void main() {
     const { gl, u } = t.G;
     if (t.texImg !== img) { t.texImg = img; upload(t.G, 0, t.G.texF, img, false); }
     gl.viewport(0, 0, t.canvas.width, t.canvas.height);
-    gl.uniform3fv(u.uCol, S.color.t);
+    const tn = S.color.tone;
+    gl.uniform4f(u.uTone, tn.L, tn.A, tn.B, tn.g);
     gl.uniform1f(u.uRec, S.color.id === "yellow" ? 0 : 1);
     gl.uniform1f(u.uCut, t.cut || 0);
     gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);

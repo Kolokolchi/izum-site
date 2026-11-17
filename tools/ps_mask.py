@@ -1,6 +1,8 @@
 """Маски вещей через Photoshop («Выделить предмет»). Photoshop должен быть установлен; управляется по COM.
 
     python -I tools/ps_mask.py <id> [кадры: 0,5,62 | all]
+    python -I tools/ps_mask.py <id> spin    — кадры полного оборота ../Video/spin/<id>/frames (compose_spin.py),
+                                             маски в ../Video/spin/<id>/masks; только кадры из todo.txt, готовые не пересчитываются
 
 Кадры ролика ../Video/turn_<id>4k.mp4 приводятся к рабочей высоте, каждый открывается в Photoshop,
 предмет выделяется, маска сохраняется в ../Video/ps_work/<id>/NNN.png (белое — вещь).
@@ -85,6 +87,22 @@ def run(js):
             try: ps = connect()
             except Exception: time.sleep(30)
     return "err нет связи с Photoshop"
+if which == "spin":                 # кадры уже лежат файлами в рабочем размере
+    sdir = os.path.join(os.path.dirname(root), "Video", "spin", pid)
+    mdir = os.path.join(sdir, "masks"); os.makedirs(mdir, exist_ok=True)
+    t0 = time.time(); done = 0
+    todo = os.path.join(sdir, "todo.txt")          # compose_spin.py build: кадры, которым нужен Photoshop
+    names = open(todo).read().split() if os.path.exists(todo) else sorted(os.listdir(os.path.join(sdir, "frames")))
+    for name in names:
+        dst = os.path.join(mdir, name)
+        if os.path.exists(dst): continue
+        src = os.path.join(sdir, "frames", name)
+        r = run(JS % (src.replace("\\", "/"), dst.replace("\\", "/")))
+        done += 1
+        cool()
+        if r != "ok" or done % 10 == 0: print(pid, name, r, f"{(time.time() - t0) / done:.1f} с/кадр, видеокарта {gpu_temp()} °C", flush=True)
+    print(pid, "готово", done, f"{time.time() - t0:.0f} с")
+    sys.exit(0)
 cap = cv2.VideoCapture(video)
 total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 want = range(total - 1) if which == "all" else [int(v) for v in which.split(",")]

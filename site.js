@@ -8,8 +8,9 @@
   const mixHex = (rgb, k) => "#" + rgb.map((v) => Math.round(v + (255 - v) * k).toString(16).padStart(2, "0")).join("");
   let color = COLORS[0];
 
-  // Та же перекраска, что в hero.js: жёлтые пиксели вещи заменяются выбранным цветом.
+  // Та же перекраска, что в hero.js (формула — tone.js): светлота жёлтой ткани переносится на выбранный цвет.
   const tinted = [...document.querySelectorAll("img[data-tint]")].map((img) => ({ img, src: img.getAttribute("src"), base: null }));
+  let lut = null, lutFor = "";      // готовые пиксели для текущего цвета: в картинках много повторяющихся значений
   function tint(t) {
     if (!t.base) return;
     if (color.id === "yellow") { t.img.src = t.src; return; }
@@ -18,16 +19,19 @@
     const g = cv.getContext("2d");
     g.drawImage(t.base, 0, 0);
     const im = g.getImageData(0, 0, cv.width, cv.height), d = im.data;
-    const [tr, tg, tb] = hexRgb(color.hex).map((v) => v / 255);
+    if (lutFor !== color.id) { lut = new Map(); lutFor = color.id; }
+    const tn = window.IZUM_TONE.target(color.hex);
     for (let p = 0; p < d.length; p += 4) {
       const al = d[p + 3];
       if (!al) continue;
       const r = d[p], gg = d[p + 1], b = d[p + 2], c = (r + gg) / 2 - b;
       if (c <= 12) continue;
-      const m = c >= 40 ? 1 : (c - 12) / 28, a = Math.max(r, gg) - b;
-      d[p] = r + (b + a * tr - r) * m;
-      d[p + 1] = gg + (b + a * tg - gg) * m;
-      d[p + 2] = b + a * tb * m;
+      const m = c >= 40 ? 1 : (c - 12) / 28, key = (r << 16) | (gg << 8) | b;
+      let o = lut.get(key);
+      if (!o) { o = window.IZUM_TONE.pixel(r / 255, gg / 255, b / 255, tn).map((v) => v * 255); lut.set(key, o); }
+      d[p] = r + (o[0] - r) * m;
+      d[p + 1] = gg + (o[1] - gg) * m;
+      d[p + 2] = b + (o[2] - b) * m;
       // светлый полупрозрачный ореол на цветном фоне читается грязью — гасим (как в шейдере hero.js)
       const lum = (0.3 * r + 0.59 * gg + 0.11 * b) / 255, av = al / 255;
       if (av < 0.92 && lum > 0.5) { const q = Math.min(1, Math.max(0, (av - 0.45) / 0.47)), w = Math.min(1, (lum - 0.5) / 0.25); d[p + 3] = al * (1 - w + w * q * q * (3 - 2 * q)); }

@@ -4,6 +4,10 @@
 // надо подтвердить у Izum, поэтому здесь только то, что видно на изображении.
 //
 // turn  — кадры оборота (tools/make_turntable.py <ролик> <id>): lo — весь оборот, hi — первые кадры в полном размере
+// mirror — кадр спины T у роликов-«качелей» (вещь доворачивается до спины и тем же путём возвращается):
+//          полный оборот достраивается зеркалом первой половины (tools/mirror_turn.py), кадров становится 2T
+// compose — то же для вещей, снятых в три четверти (кепка, ушанка): строгих видов спереди и сзади в ролике нет,
+//          дуги через спину и через лицо — короткие ролики Flow (tools/compose_spin.py), T — кадр почти-спины
 // print — зона печати на лицевом кадре, как смарт-объект в мокапе:
 //   quad — четыре угла зоны (левый верх, правый верх, правый низ, левый низ) в долях кадра;
 //   surf — на какую поверхность ложится нанесение: "accent" (цветная ткань) или "dark" (чёрная);
@@ -42,7 +46,8 @@ const SEWN = ["Пошив", "партиями, собственное произ
 window.IZUM_ITEMS = [
   {
     id: "hoodie", img: "img/turn/hoodie/lo/000.webp", w: 1018, h: 1267,
-    turn: { dir: "img/turn/hoodie", n: 118, fw: 1048, fh: 1388, ox: 16, oy: 33, ow: 1018, oh: 1267 },
+    turn: { dir: "img/turn/hoodie", n: 124, fw: 1048, fh: 1388, ox: 16, oy: 33, ow: 1018, oh: 1267 },
+    mirror: 62,
     print: { quad: [[0.30, 0.33], [0.70, 0.33], [0.70, 0.60], [0.30, 0.60]], surf: "accent", r: 0.13, dir: 1 },
     places: { back: { k: 62, quad: [[0.27, 0.30], [0.73, 0.30], [0.73, 0.70], [0.27, 0.70]], surf: "accent" }, sleeve: { k: 36, quad: [[0.40, 0.36], [0.60, 0.36], [0.60, 0.52], [0.40, 0.52]], surf: "accent" } },
     inner: { surf: "dark", in: [0.5, 0.095, 0.19, 0.095], cut: [0.495, 0.15, 0.1, 0.05], names: ["Снаружи", "Капюшон внутри"] },
@@ -62,7 +67,8 @@ window.IZUM_ITEMS = [
   },
   {
     id: "tshirt", img: "img/turn/tshirt/lo/000.webp", w: 1192, h: 1197,
-    turn: { dir: "img/turn/tshirt", n: 118, fw: 1224, fh: 1292, ox: 12, oy: 17, ow: 1192, oh: 1197 },
+    turn: { dir: "img/turn/tshirt", n: 130, fw: 1224, fh: 1292, ox: 12, oy: 17, ow: 1192, oh: 1197 },
+    mirror: 65,
     print: { quad: [[0.31, 0.22], [0.69, 0.22], [0.69, 0.62], [0.31, 0.62]], surf: "accent", r: 0.12, dir: -1 },
     places: { back: { k: 70, quad: [[0.30, 0.18], [0.70, 0.18], [0.70, 0.64], [0.30, 0.64]], surf: "accent" }, sleeve: { k: 44, quad: [[0.40, 0.22], [0.60, 0.22], [0.60, 0.36], [0.40, 0.36]], surf: "accent" } },
     inner: { surf: "accent", in: [0.495, 0.035, 0.097, 0.058], cut: [0.495, 0.035, 0.097, 0.058] },
@@ -82,7 +88,8 @@ window.IZUM_ITEMS = [
   },
   {
     id: "bomber", img: "img/turn/bomber/lo/000.webp", w: 1094, h: 1237,
-    turn: { dir: "img/turn/bomber", n: 118, fw: 1124, fh: 1356, ox: 11, oy: 17, ow: 1094, oh: 1237 },
+    turn: { dir: "img/turn/bomber", n: 132, fw: 1124, fh: 1356, ox: 11, oy: 17, ow: 1094, oh: 1237 },
+    mirror: 66,
     print: { quad: [[0.59, 0.30], [0.78, 0.30], [0.78, 0.44], [0.59, 0.44]], surf: "dark", r: 0.18, dir: -1, phi: 55 },
     places: { back: { k: 66, quad: [[0.28, 0.24], [0.72, 0.24], [0.72, 0.66], [0.28, 0.66]], surf: "dark" }, sleeve: { k: 42, quad: [[0.40, 0.32], [0.60, 0.32], [0.60, 0.48], [0.40, 0.48]], surf: "dark" } },
     inner: { surf: "accent", names: ["Снаружи", "Подкладка"] },
@@ -100,8 +107,9 @@ window.IZUM_ITEMS = [
     specs: [["Верх", "стёганая плащевая ткань"], ["Подкладка", "в цвет бренда"], SEWN],
   },
   {
-    id: "ushanka", img: "img/turn/ushanka/lo/000.webp", w: 881, h: 1227,
-    turn: { dir: "img/turn/ushanka", n: 118, fw: 996, fh: 1296, ox: 74, oy: 13, ow: 881, oh: 1227 },
+    id: "ushanka", img: "img/turn/ushanka/lo/000.webp?c=68", w: 881, h: 1227,
+    turn: { dir: "img/turn/ushanka", n: 190, fw: 1024, fh: 1324, ox: 74, oy: 53, ow: 881, oh: 1227 },
+    compose: 68,
     print: { quad: [[0.15, 0.155], [0.52, 0.14], [0.52, 0.325], [0.15, 0.34]], surf: "dark" },
     inner: { surf: "accent", names: ["Верх", "Мех"] },
     name: "Ушанка", set: ACC,
@@ -109,8 +117,9 @@ window.IZUM_ITEMS = [
     specs: [["Верх", "плащевая ткань"], ["Изнанка", "в цвет бренда"], SEWN],
   },
   {
-    id: "cap", img: "img/turn/cap/lo/000.webp", w: 1111, h: 862,
-    turn: { dir: "img/turn/cap", n: 118, fw: 1480, fh: 944, ox: 170, oy: 61, ow: 1111, oh: 862 },
+    id: "cap", img: "img/turn/cap/lo/000.webp?c=67", w: 1111, h: 862,
+    turn: { dir: "img/turn/cap", n: 200, fw: 1516, fh: 968, ox: 218, oy: 93, ow: 1111, oh: 862 },
+    compose: 67,
     print: { quad: [[0.365, 0.272], [0.559, 0.309], [0.502, 0.588], [0.307, 0.550]], surf: "accent", arc: 0.02 },
     inner: { surf: "dark", names: ["Тулья", "Козырёк"] },
     name: "Кепка", set: ACC,

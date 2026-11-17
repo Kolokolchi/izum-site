@@ -1,6 +1,8 @@
 """Раскладывает ролик-«вертушку» (объект на белом фоне, полный оборот) на кадры с прозрачным фоном.
 
     python -I tools/make_turntable.py <video.mp4> <id> [кадры через запятую: 36,62]
+    python -I tools/make_turntable.py <папка> <id>   — кадры <папка>/frames/NNN.png и маски <папка>/masks
+                                                     (полный оборот, собранный compose_spin.py); петля уже без повтора
 
 Ролик может быть любого разрешения (720p, 1080p, 4K): кадр приводится к рабочей высоте WORK,
 вырезается, и пишутся два набора кадров:
@@ -38,6 +40,9 @@ for old in os.listdir(out):      # кадры прежнего формата л
 _pp = os.path.join(os.path.dirname(root), "Video", "ps_work", pid, "patch.json")
 PATCH = {int(k): int(v) for k, v in json.load(open(_pp)).items()} if os.path.exists(_pp) else {}
 
+SEQ = os.path.isdir(video)       # вместо ролика — папка готовых кадров (compose_spin.py)
+if SEQ: PATCH = {}
+
 _keep = {}                       # кадры-замены, читаются один раз (замена может стоять и позже испорченного кадра)
 if PATCH:
     _cap = cv2.VideoCapture(video); _k = 0
@@ -49,6 +54,14 @@ if PATCH:
     _cap.release()
 
 def frames():
+    if SEQ:
+        names = sorted(os.listdir(os.path.join(video, "frames")))
+        for name in names + names[:1]:          # как у ролика: последний кадр равен первому и в петлю не идёт
+            f = cv2.imread(os.path.join(video, "frames", name))
+            h, w = f.shape[:2]
+            if h > WORK: f = cv2.resize(f, (round(w * WORK / h), WORK), interpolation=cv2.INTER_AREA)
+            yield cv2.cvtColor(f, cv2.COLOR_BGR2RGB)
+        return
     cap = cv2.VideoCapture(video); k = -1
     while True:
         ok, f = cap.read()
@@ -108,6 +121,7 @@ def cut(im):
     return np.dstack([col, alpha * 255]).astype(np.uint8)
 
 MASKS = os.path.join(os.path.dirname(root), "Video", "ps_work", pid)   # маски Photoshop: tools/ps_mask.py
+if SEQ: MASKS = os.path.join(video, "masks")
 
 def cut_ps(im, mask):
     """RGBA по маске Photoshop («Выделить предмет»): ровный край без следов сжатия ролика и без тени.
