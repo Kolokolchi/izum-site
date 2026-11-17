@@ -115,27 +115,27 @@ a.card:hover { transform: translateY(-8px); background: var(--accent-hi); }
 .shop-pics a::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: var(--izum-line); transform: scaleX(0); transform-origin: left; transition: transform .45s var(--ease); }
 .shop-pics a:hover::after, .shop-pics a:focus-visible::after { transform: scaleX(1); }
 
-/* просмотр фото (gallery.js) */
-html.lb-open { overflow: hidden; }
-.lb { width: 100vw; height: 100dvh; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: rgba(8, 8, 8, .96); color: #fff; overflow: hidden; }
-.lb::backdrop { background: transparent; }
-.lb[open] { display: grid; grid-template-rows: minmax(0, 1fr) auto; animation: lb-in .3s var(--ease); }
-@keyframes lb-in { from { opacity: 0; } }
+/* просмотр фото (gallery.js). Префикс pv-: класс .lb занят в конструкторе (панель слоёв), а pages.css подключён и там. */
+html.pv-open { overflow: hidden; }
+.pv { width: 100vw; height: 100dvh; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: rgba(8, 8, 8, .96); color: #fff; overflow: hidden; }
+.pv::backdrop { background: transparent; }
+.pv[open] { display: grid; grid-template-rows: minmax(0, 1fr) auto; animation: pv-in .3s var(--ease); }
+@keyframes pv-in { from { opacity: 0; } }
 /* ячейка снимка задана явно (minmax(0, 1fr) по обеим осям): иначе её высота авто и max-height: 100% у картинки не срабатывает */
-.lb-fig { display: grid; grid-template: minmax(0, 1fr) / minmax(0, 1fr); place-items: center; min-height: 0; padding: clamp(14px, 3vw, 40px) clamp(56px, 7vw, 110px) 0; touch-action: pan-y; }
-.lb-fig img { width: auto; height: auto; max-width: 100%; max-height: 100%; border-radius: 14px; box-shadow: 0 30px 80px rgba(0, 0, 0, .5); transition: opacity .25s; }
-.lb-fig img.wait { opacity: .35; }
-.lb-bar { display: flex; align-items: center; justify-content: center; gap: 18px; padding: 16px 20px max(18px, env(safe-area-inset-bottom)); font-size: 12px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; }
-.lb-n { color: var(--accent-ink); }
-.lb button { position: absolute; width: 48px; height: 48px; border: 0; border-radius: 50%; background: rgba(255, 255, 255, .1); color: #fff; font-family: inherit; font-size: 22px; font-weight: 700; line-height: 1; cursor: pointer; display: grid; place-items: center; transition: background .2s, color .2s; }
-.lb button:hover, .lb button:focus-visible { background: var(--accent); color: var(--on); outline: none; }
-.lb-x { top: 14px; right: 14px; }
-.lb-prev, .lb-next { top: 50%; margin-top: -40px; }
-.lb-prev { left: clamp(6px, 2vw, 30px); } .lb-next { right: clamp(6px, 2vw, 30px); }
+.pv-fig { display: grid; grid-template: minmax(0, 1fr) / minmax(0, 1fr); place-items: center; min-height: 0; padding: clamp(14px, 3vw, 40px) clamp(56px, 7vw, 110px) 0; touch-action: pan-y; }
+.pv-fig img { width: auto; height: auto; max-width: 100%; max-height: 100%; border-radius: 14px; box-shadow: 0 30px 80px rgba(0, 0, 0, .5); transition: opacity .25s; }
+.pv-fig img.wait { opacity: .35; }
+.pv-bar { display: flex; align-items: center; justify-content: center; gap: 18px; padding: 16px 20px max(18px, env(safe-area-inset-bottom)); font-size: 12px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; }
+.pv-n { color: var(--accent-ink); }
+.pv > button { position: absolute; width: 48px; height: 48px; border: 0; border-radius: 50%; background: rgba(255, 255, 255, .1); color: #fff; font-family: inherit; font-size: 22px; font-weight: 700; line-height: 1; cursor: pointer; display: grid; place-items: center; transition: background .2s, color .2s; }
+.pv > button:hover, .pv > button:focus-visible { background: var(--accent); color: var(--on); outline: none; }
+.pv-x { top: 14px; right: 14px; }
+.pv-prev, .pv-next { top: 50%; margin-top: -40px; }
+.pv-prev { left: clamp(6px, 2vw, 30px); } .pv-next { right: clamp(6px, 2vw, 30px); }
 @media (max-width: 600px) {
-  .lb-fig { padding: 70px 10px 0; }
-  .lb-bar { flex-wrap: wrap; gap: 6px 14px; min-height: 76px; padding-inline: 66px; text-align: center; line-height: 1.4; letter-spacing: .14em; }
-  .lb-prev, .lb-next { top: auto; bottom: max(14px, env(safe-area-inset-bottom)); margin: 0; }
+  .pv-fig { padding: 70px 10px 0; }
+  .pv-bar { flex-wrap: wrap; gap: 6px 14px; min-height: 76px; padding-inline: 66px; text-align: center; line-height: 1.4; letter-spacing: .14em; }
+  .pv-prev, .pv-next { top: auto; bottom: max(14px, env(safe-area-inset-bottom)); margin: 0; }
 }
 
 .big-num { display: flex; flex-wrap: wrap; gap: 30px clamp(40px, 7vw, 120px); }

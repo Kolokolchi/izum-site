@@ -7,20 +7,20 @@
   if (!links.length || typeof HTMLDialogElement !== "function") return;
 
   var dlg = document.createElement("dialog");
-  dlg.className = "lb";
+  dlg.className = "pv";
   dlg.setAttribute("aria-label", "Фото производства");
   dlg.innerHTML =
-    '<div class="lb-fig"><img alt=""></div>' +
-    '<div class="lb-bar"><span class="lb-n"></span><span class="lb-cap"></span></div>' +
-    '<button class="lb-prev" type="button" aria-label="Предыдущее фото">←</button>' +
-    '<button class="lb-next" type="button" aria-label="Следующее фото">→</button>' +
-    '<button class="lb-x" type="button" aria-label="Закрыть">✕</button>';
+    '<div class="pv-fig"><img alt=""></div>' +
+    '<div class="pv-bar"><span class="pv-n"></span><span class="pv-cap"></span></div>' +
+    '<button class="pv-prev" type="button" aria-label="Предыдущее фото">←</button>' +
+    '<button class="pv-next" type="button" aria-label="Следующее фото">→</button>' +
+    '<button class="pv-x" type="button" aria-label="Закрыть">✕</button>';
   document.body.appendChild(dlg);
 
-  var fig = dlg.querySelector(".lb-fig");
+  var fig = dlg.querySelector(".pv-fig");
   var img = fig.querySelector("img");
-  var num = dlg.querySelector(".lb-n");
-  var cap = dlg.querySelector(".lb-cap");
+  var num = dlg.querySelector(".pv-n");
+  var cap = dlg.querySelector(".pv-cap");
   var cur = 0;
 
   function show(i) {
@@ -46,19 +46,19 @@
       if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;   // открыть во вкладке — как обычно
       e.preventDefault();
       show(i);
-      document.documentElement.classList.add("lb-open");
+      document.documentElement.classList.add("pv-open");
       dlg.showModal();
     });
   });
 
   dlg.addEventListener("close", function () {
-    document.documentElement.classList.remove("lb-open");
+    document.documentElement.classList.remove("pv-open");
     var a = links[cur];
     if (a) a.focus({ preventScroll: true });
   });
-  dlg.querySelector(".lb-prev").addEventListener("click", function () { show(cur - 1); });
-  dlg.querySelector(".lb-next").addEventListener("click", function () { show(cur + 1); });
-  dlg.querySelector(".lb-x").addEventListener("click", close);
+  dlg.querySelector(".pv-prev").addEventListener("click", function () { show(cur - 1); });
+  dlg.querySelector(".pv-next").addEventListener("click", function () { show(cur + 1); });
+  dlg.querySelector(".pv-x").addEventListener("click", close);
   // клик по пустому месту вокруг снимка закрывает просмотр
   var swiped = false;   // свайп по пустому месту не должен закрыть просмотр следом идущим кликом
   fig.addEventListener("click", function (e) {
