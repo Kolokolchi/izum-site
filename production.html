@@ -10,7 +10,7 @@
   <link rel="icon" href="img/izum-logo.png">
   <link rel="stylesheet" href="hero.css?v=1113p">
   <link rel="stylesheet" href="site.css?v=1113p">
-  <link rel="stylesheet" href="pages.css?v=1113p">
+  <link rel="stylesheet" href="pages.css?v=1117b">
 </head>
 <body class="page">
   <div class="izum-line izum-line-top" aria-hidden="true"></div>
@@ -33,14 +33,15 @@
       <p class="p-lg" data-rev style="--i:2">У нас собственная производственная база и команда: швейный и печатный цех на одной площадке. Поэтому идея, пошив, нанесение и тираж не расходятся по разным подрядчикам.</p>
     </section>
 
-    <!-- Фото и видео цехов пришлёт заказчик: до тех пор здесь размеченные места под снимки. -->
+    <!-- Снимки цехов прислал заказчик 17.11.2026 (архив в Tex/Image). Файлы — img/production/<цех>-<номер снимка>-800|1600.webp.
+         Ссылка ведёт на крупную версию: без скриптов она просто открывается, с gallery.js — в просмотре со счётчиком. -->
     <section class="s s-ink" style="padding-top: 0">
-      <div class="shots">
-        <div class="shot" data-rev>Фото: швейный цех</div>
-        <div class="shot" data-rev style="--i:1">Фото: раскрой</div>
-        <div class="shot" data-rev style="--i:2">Фото: печать</div>
-        <div class="shot" data-rev style="--i:1">Фото: вышивка</div>
-        <div class="shot" data-rev style="--i:2">Фото: контроль качества</div>
+      <div class="shots" data-gallery>
+        <a class="shot" data-rev href="img/production/sew-01-1600.webp" data-cap="Швейный цех"><img src="img/production/sew-01-800.webp" srcset="img/production/sew-01-800.webp 800w, img/production/sew-01-1600.webp 1600w" sizes="(max-width: 900px) 92vw, 40vw" width="800" height="1067" decoding="async" alt="Швейный цех: ряды машин, швеи шьют жёлтые изделия"><span>Швейный цех</span></a>
+        <a class="shot" data-rev style="--i:1; --pos: 50% 62%" href="img/production/sew-05-1600.webp" data-cap="Раскрой"><img src="img/production/sew-05-800.webp" srcset="img/production/sew-05-800.webp 800w, img/production/sew-05-1600.webp 1600w" sizes="(max-width: 900px) 46vw, 28vw" width="800" height="1067" decoding="async" alt="Раскройный стол: мастер размечает полотно с принтом"><span>Раскрой</span></a>
+        <a class="shot" data-rev style="--i:2; --pos: 50% 58%" href="img/production/silk-17-1600.webp" data-cap="Шелкография: печать через трафарет"><img src="img/production/silk-17-800.webp" srcset="img/production/silk-17-800.webp 800w, img/production/silk-17-1600.webp 1600w" sizes="(max-width: 900px) 46vw, 28vw" width="800" height="1067" decoding="async" alt="Печатник протягивает ракель по трафарету с оранжевой краской"><span>Шелкография</span></a>
+        <a class="shot" data-rev style="--i:1; --pos: 50% 45%" href="img/production/dtf-33-1600.webp" data-cap="DTF-печать: плёнка с макетами"><img src="img/production/dtf-33-800.webp" srcset="img/production/dtf-33-800.webp 800w, img/production/dtf-33-1600.webp 1600w" sizes="(max-width: 900px) 46vw, 28vw" width="800" height="1067" decoding="async" alt="DTF-принтер выпускает плёнку с отпечатанными логотипами"><span>DTF-печать</span></a>
+        <a class="shot" data-rev style="--i:2; --pos: 50% 60%" href="img/production/sub-45-1600.webp" data-cap="Сублимация: рисунок перенесён на полотно"><img src="img/production/sub-45-800.webp" srcset="img/production/sub-45-800.webp 800w, img/production/sub-45-1600.webp 1600w" sizes="(max-width: 900px) 46vw, 28vw" width="800" height="1067" decoding="async" alt="Полотно с сублимационной печатью по всей ширине выходит из машины"><span>Сублимация</span></a>
       </div>
     </section>
 
@@ -56,6 +57,49 @@
         <div class="row" data-rev><i>04</i><h3>Нанесение</h3><p>DTF-печать, сублимация, шелкография, эмбоссирование и вышивка — у себя, без передачи на сторону.</p></div>
         <div class="row" data-rev><i>05</i><h3>Контроль качества</h3><p>Проверяем на каждом этапе: ткань, швы, посадку и финальное нанесение.</p></div>
         <div class="row" data-rev><i>06</i><h3>Тираж и доставка</h3><p>Упаковываем и отгружаем в срок. Доставляем по Казахстану и по миру.</p></div>
+      </div>
+    </section>
+
+    <section class="s s-ink">
+      <div class="s-head">
+        <div><p class="eyebrow" data-rev>Цеха изнутри</p><h2 class="h-lg" data-rev style="--i:1">Как это <em>выглядит у нас</em></h2></div>
+        <p data-rev style="--i:2">Снимки с нашего производства: пошив и три технологии печати. Нажмите на фото, чтобы рассмотреть.</p>
+      </div>
+      <div class="shop" data-rev>
+        <div class="shop-txt"><i>01</i><h3 class="h-md">Швейный цех</h3><p>Раскрой, пошив и упаковка тиража.</p></div>
+        <div class="shop-pics" data-gallery>
+          <a href="img/production/sew-02-1600.webp" data-cap="Швейный цех"><img src="img/production/sew-02-800.webp" srcset="img/production/sew-02-800.webp 800w, img/production/sew-02-1600.webp 1600w" sizes="(max-width: 900px) 62vw, 17vw" width="800" height="1067" loading="lazy" decoding="async" alt="Швейный цех, на стене — логотип Izum Design Production"></a>
+          <a href="img/production/sew-04-1600.webp" data-cap="Пошив"><img src="img/production/sew-04-800.webp" srcset="img/production/sew-04-800.webp 800w, img/production/sew-04-1600.webp 1600w" sizes="(max-width: 900px) 62vw, 17vw" width="800" height="1067" loading="lazy" decoding="async" alt="Швеи за промышленными машинами"></a>
+          <a href="img/production/sew-07-1600.webp" data-cap="Детали кроя"><img src="img/production/sew-07-800.webp" srcset="img/production/sew-07-800.webp 800w, img/production/sew-07-1600.webp 1600w" sizes="(max-width: 900px) 62vw, 17vw" width="800" height="1067" loading="lazy" decoding="async" alt="Стопки жёлтых деталей кроя на раскройном столе"></a>
+          <a href="img/production/sew-10-1600.webp" data-cap="Упаковка тиража"><img src="img/production/sew-10-800.webp" srcset="img/production/sew-10-800.webp 800w, img/production/sew-10-1600.webp 1600w" sizes="(max-width: 900px) 62vw, 17vw" width="800" height="1067" loading="lazy" decoding="async" alt="Сотрудницы упаковывают готовые изделия в пакеты"></a>
+        </div>
+      </div>
+      <div class="shop" data-rev>
+        <div class="shop-txt"><i>02</i><h3 class="h-md">Шелкография</h3><p>Трафареты готовим и промываем у себя, печатаем на карусельных станках.</p></div>
+        <div class="shop-pics" data-gallery>
+          <a href="img/production/silk-11-1600.webp" data-cap="Цех шелкографии"><img src="img/production/silk-11-800.webp" srcset="img/production/silk-11-800.webp 800w, img/production/silk-11-1600.webp 1600w" sizes="(max-width: 900px) 62vw, 17vw" width="800" height="1067" loading="lazy" decoding="async" alt="Цех шелкографии с карусельными печатными станками"></a>
+          <a href="img/production/silk-13-1600.webp" data-cap="Подготовка трафарета"><img src="img/production/silk-13-800.webp" srcset="img/production/silk-13-800.webp 800w, img/production/silk-13-1600.webp 1600w" sizes="(max-width: 900px) 62vw, 17vw" width="800" height="1067" loading="lazy" decoding="async" alt="Мастер выравнивает макет на трафаретной раме"></a>
+          <a href="img/production/silk-16-1600.webp" data-cap="Промывка трафарета"><img src="img/production/silk-16-800.webp" srcset="img/production/silk-16-800.webp 800w, img/production/silk-16-1600.webp 1600w" sizes="(max-width: 900px) 62vw, 17vw" width="800" height="1067" loading="lazy" decoding="async" alt="Трафаретную раму промывают струёй воды"></a>
+          <a href="img/production/silk-25-1600.webp" data-cap="Печать на чёрном трикотаже"><img src="img/production/silk-25-800.webp" srcset="img/production/silk-25-800.webp 800w, img/production/silk-25-1600.webp 1600w" sizes="(max-width: 900px) 62vw, 17vw" width="800" height="1067" loading="lazy" decoding="async" alt="Многоцветный принт с драконом на чёрной футболке на столе станка"></a>
+        </div>
+      </div>
+      <div class="shop" data-rev>
+        <div class="shop-txt"><i>03</i><h3 class="h-md">DTF-печать</h3><p>Печать на плёнку и перенос прессом: на футболки, шоперы, детали кроя.</p></div>
+        <div class="shop-pics" data-gallery>
+          <a href="img/production/dtf-32-1600.webp" data-cap="Участок DTF-печати"><img src="img/production/dtf-32-800.webp" srcset="img/production/dtf-32-800.webp 800w, img/production/dtf-32-1600.webp 1600w" sizes="(max-width: 900px) 62vw, 17vw" width="800" height="1067" loading="lazy" decoding="async" alt="Участок DTF-печати: принтеры и стеллажи с плёнкой"></a>
+          <a href="img/production/dtf-31-1600.webp" data-cap="Перенос принта прессом"><img src="img/production/dtf-31-800.webp" srcset="img/production/dtf-31-800.webp 800w, img/production/dtf-31-1600.webp 1600w" sizes="(max-width: 900px) 62vw, 17vw" width="800" height="1062" loading="lazy" decoding="async" alt="Шопер с зелёным принтом снимают с термопресса"></a>
+          <a href="img/production/dtf-34-1600.webp" data-cap="Перенос на детали кроя"><img src="img/production/dtf-34-800.webp" srcset="img/production/dtf-34-800.webp 800w, img/production/dtf-34-1600.webp 1600w" sizes="(max-width: 900px) 62vw, 17vw" width="800" height="1067" loading="lazy" decoding="async" alt="Красные детали кроя с белыми принтами под термопрессом"></a>
+          <a href="img/production/dtf-37-1600.webp" data-cap="Готовые шоперы"><img src="img/production/dtf-37-800.webp" srcset="img/production/dtf-37-800.webp 800w, img/production/dtf-37-1600.webp 1600w" sizes="(max-width: 900px) 62vw, 17vw" width="800" height="1067" loading="lazy" decoding="async" alt="Чёрные шоперы с полноцветными принтами"></a>
+        </div>
+      </div>
+      <div class="shop" data-rev>
+        <div class="shop-txt"><i>04</i><h3 class="h-md">Сублимация</h3><p>Широкоформатная печать и перенос на ткань в рулоне — рисунок по всей площади.</p></div>
+        <div class="shop-pics" data-gallery>
+          <a href="img/production/sub-38-1600.webp" data-cap="Широкоформатная печать"><img src="img/production/sub-38-800.webp" srcset="img/production/sub-38-800.webp 800w, img/production/sub-38-1600.webp 1600w" sizes="(max-width: 900px) 62vw, 17vw" width="800" height="1067" loading="lazy" decoding="async" alt="Широкоформатный принтер печатает орнамент"></a>
+          <a href="img/production/sub-42-1600.webp" data-cap="Принтеры для сублимации"><img src="img/production/sub-42-800.webp" srcset="img/production/sub-42-800.webp 800w, img/production/sub-42-1600.webp 1600w" sizes="(max-width: 900px) 62vw, 17vw" width="800" height="1067" loading="lazy" decoding="async" alt="Два широкоформатных принтера в цехе сублимации"></a>
+          <a href="img/production/sub-40-1600.webp" data-cap="Отпечатанное полотно"><img src="img/production/sub-40-800.webp" srcset="img/production/sub-40-800.webp 800w, img/production/sub-40-1600.webp 1600w" sizes="(max-width: 900px) 62vw, 17vw" width="800" height="1067" loading="lazy" decoding="async" alt="Рука на полотне с детальным сублимационным рисунком"></a>
+          <a href="img/production/sub-44-1600.webp" data-cap="Перенос на ткань в рулоне"><img src="img/production/sub-44-800.webp" srcset="img/production/sub-44-800.webp 800w, img/production/sub-44-1600.webp 1600w" sizes="(max-width: 900px) 62vw, 17vw" width="800" height="1067" loading="lazy" decoding="async" alt="Красное полотно с орнаментом выходит из машины переноса"></a>
+        </div>
       </div>
     </section>
 
@@ -94,6 +138,7 @@
   </main>
 
   <script src="data.js?v=1113p"></script>
-  <script src="site.js?v=1113p"></script>
+  <script src="site.js?v=1115c"></script>
+  <script src="gallery.js?v=1117a"></script>
 </body>
 </html>

@@ -95,11 +95,48 @@ a.card:hover { transform: translateY(-8px); background: var(--accent-hi); }
 .faq details[open] summary::after { transform: rotate(45deg); }
 .faq p { padding: 0 0 24px; max-width: 46em; font-size: 15px; line-height: 1.6; font-weight: 500; opacity: .8; }
 
-/* место под фото производства — снимки пришлёт заказчик */
+/* Фото производства (снимки заказчика, 17.11.2026). Кадры портретные 3:4; в ячейках сетки они обрезаются —
+   точку кадра задаёт --pos у ссылки. Подпись-плашка в цвете акцента (на чёрном --plate = акцент). */
 .shots { display: grid; grid-template-columns: 1.4fr 1fr 1fr; grid-auto-rows: clamp(180px, 22vw, 320px); gap: 14px; }
-.shot { border-radius: 24px; display: grid; place-items: center; text-align: center; padding: 16px; font-size: 11px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; color: rgba(255, 255, 255, .55);
-  background: repeating-linear-gradient(135deg, rgba(255, 255, 255, .05) 0 14px, rgba(255, 255, 255, .1) 14px 28px); border: 1px dashed rgba(255, 255, 255, .3); }
+.shot { position: relative; display: block; overflow: hidden; border-radius: 24px; background: #1c1c1c; }
 .shot:first-child { grid-row: span 2; }
+.shot img, .shop-pics img { width: 100%; height: 100%; object-fit: cover; object-position: var(--pos, 50% 50%); transition: transform .9s var(--ease), filter .5s; }
+.shot:hover img, .shop-pics a:hover img { transform: scale(1.05); }
+.shot span { position: absolute; left: 14px; bottom: 14px; padding: 8px 13px 7px; border-radius: 999px; background: var(--plate); color: var(--on-plate); font-size: 11px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; transition: background .4s, color .4s; }
+.shot:focus-visible, .shop-pics a:focus-visible { outline: 3px solid var(--accent-ink); outline-offset: 3px; }
+
+/* «Цеха изнутри»: строка на цех — подпись слева, четыре кадра справа; на телефоне кадры листаются вбок */
+.shop { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 3fr); gap: 20px clamp(20px, 3vw, 50px); padding: clamp(22px, 2.6vw, 38px) 0; border-top: 1px solid rgba(255, 255, 255, .18); }
+.shop:last-child { padding-bottom: 0; }
+.shop-txt i { display: block; font-style: normal; font-size: 11px; font-weight: 700; letter-spacing: .16em; color: var(--accent-ink); margin-bottom: 14px; }
+.shop-txt p { margin-top: 12px; max-width: 22em; font-size: 15px; line-height: 1.5; font-weight: 500; opacity: .72; }
+.shop-pics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.shop-pics a { position: relative; display: block; aspect-ratio: 3 / 4; overflow: hidden; border-radius: 18px; background: #1c1c1c; }
+.shop-pics a::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: var(--izum-line); transform: scaleX(0); transform-origin: left; transition: transform .45s var(--ease); }
+.shop-pics a:hover::after, .shop-pics a:focus-visible::after { transform: scaleX(1); }
+
+/* просмотр фото (gallery.js) */
+html.lb-open { overflow: hidden; }
+.lb { width: 100vw; height: 100dvh; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: rgba(8, 8, 8, .96); color: #fff; overflow: hidden; }
+.lb::backdrop { background: transparent; }
+.lb[open] { display: grid; grid-template-rows: minmax(0, 1fr) auto; animation: lb-in .3s var(--ease); }
+@keyframes lb-in { from { opacity: 0; } }
+/* ячейка снимка задана явно (minmax(0, 1fr) по обеим осям): иначе её высота авто и max-height: 100% у картинки не срабатывает */
+.lb-fig { display: grid; grid-template: minmax(0, 1fr) / minmax(0, 1fr); place-items: center; min-height: 0; padding: clamp(14px, 3vw, 40px) clamp(56px, 7vw, 110px) 0; touch-action: pan-y; }
+.lb-fig img { width: auto; height: auto; max-width: 100%; max-height: 100%; border-radius: 14px; box-shadow: 0 30px 80px rgba(0, 0, 0, .5); transition: opacity .25s; }
+.lb-fig img.wait { opacity: .35; }
+.lb-bar { display: flex; align-items: center; justify-content: center; gap: 18px; padding: 16px 20px max(18px, env(safe-area-inset-bottom)); font-size: 12px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; }
+.lb-n { color: var(--accent-ink); }
+.lb button { position: absolute; width: 48px; height: 48px; border: 0; border-radius: 50%; background: rgba(255, 255, 255, .1); color: #fff; font-family: inherit; font-size: 22px; font-weight: 700; line-height: 1; cursor: pointer; display: grid; place-items: center; transition: background .2s, color .2s; }
+.lb button:hover, .lb button:focus-visible { background: var(--accent); color: var(--on); outline: none; }
+.lb-x { top: 14px; right: 14px; }
+.lb-prev, .lb-next { top: 50%; margin-top: -40px; }
+.lb-prev { left: clamp(6px, 2vw, 30px); } .lb-next { right: clamp(6px, 2vw, 30px); }
+@media (max-width: 600px) {
+  .lb-fig { padding: 70px 10px 0; }
+  .lb-bar { flex-wrap: wrap; gap: 6px 14px; min-height: 76px; padding-inline: 66px; text-align: center; line-height: 1.4; letter-spacing: .14em; }
+  .lb-prev, .lb-next { top: auto; bottom: max(14px, env(safe-area-inset-bottom)); margin: 0; }
+}
 
 .big-num { display: flex; flex-wrap: wrap; gap: 30px clamp(40px, 7vw, 120px); }
 .big-num b { display: block; font-weight: 900; font-style: italic; font-size: clamp(54px, 8vw, 130px); line-height: .9; letter-spacing: -.03em; }
@@ -123,7 +160,13 @@ a.card:hover { transform: translateY(-8px); background: var(--accent-hi); }
   .ph-art { max-width: 420px; margin: 0 auto; width: 100%; }
   .row { grid-template-columns: 40px 1fr; } .row p { grid-column: 2; }
   .form { grid-template-columns: 1fr; }
-  .shots { grid-template-columns: 1fr 1fr; } .shot:first-child { grid-column: span 2; grid-row: auto; }
+  .shots { grid-template-columns: 1fr 1fr; grid-auto-rows: clamp(150px, 44vw, 340px); gap: 10px; } .shot:first-child { grid-column: span 2; grid-row: span 2; }
+  .shot { border-radius: 18px; } .shot span { left: 10px; bottom: 10px; font-size: 10px; letter-spacing: .14em; }
+  .shop { grid-template-columns: 1fr; }
+  .shop-pics { display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; scrollbar-width: none;
+    margin-inline: calc(-1 * clamp(20px, 7vw, 110px)); padding-inline: clamp(20px, 7vw, 110px); scroll-padding-inline: clamp(20px, 7vw, 110px); }
+  .shop-pics::-webkit-scrollbar { display: none; }
+  .shop-pics a { flex: 0 0 min(62vw, 300px); scroll-snap-align: start; }
 }
 @media (max-width: 520px) { .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; } .card { padding: 12px 14px 16px; } .card p { display: none; } }
 /* телефон: четыре раздела не помещаются в строку рядом с логотипом (страница становилась шире экрана) —
