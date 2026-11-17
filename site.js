@@ -64,16 +64,26 @@
     st.setProperty("--on-plate", pale ? "#ffffff" : darkOn ? "#0d0d0d" : "#ffffff");
     st.setProperty("--accent-ink", lum < 0.3 ? mixHex(rgb, 0.38) : color.hex);
     document.querySelectorAll("[data-swatches] button").forEach((b) => b.classList.toggle("on", b.dataset.id === color.id));
+    // как в hero.js: выбор держится до конца визита, последний цвет помнится между визитами
+    try { sessionStorage.setItem("izum-color", color.id); } catch (e) { /* хранилище недоступно */ }
     try { localStorage.setItem("izum-color", color.id); } catch (e) { /* хранилище недоступно */ }
     tinted.forEach(tint);
+  }
+  // Цвет при входе — случайный и не прошлый; внутри визита держится выбранный (та же логика, что в hero.js).
+  function startColor() {
+    const has = (id) => COLORS.some((c) => c.id === id);
+    let cur = null, last = null;
+    try { cur = sessionStorage.getItem("izum-color"); } catch (e) { /* нет доступа */ }
+    if (has(cur)) return cur;
+    try { last = localStorage.getItem("izum-color"); } catch (e) { /* нет доступа */ }
+    const pool = COLORS.filter((c) => c.id !== last);
+    return pool[Math.floor(Math.random() * pool.length)].id;
   }
   document.querySelectorAll("[data-swatches]").forEach((box) => {
     box.innerHTML = COLORS.map((c) => `<button type="button" data-id="${c.id}" style="--c:${c.hex}" title="${c.name}" aria-label="${c.name}"></button>`).join("");
     box.addEventListener("click", (ev) => { const b = ev.target.closest("button"); if (b) setColor(b.dataset.id); });
   });
-  let saved = null;
-  try { saved = localStorage.getItem("izum-color"); } catch (e) { /* нет доступа */ }
-  setColor(saved || COLORS[0].id);
+  setColor(startColor());
 
   // Появление блоков. Блоки спрятаны, только пока на <html> стоит класс js (его ставит строка в <head>), а если
   // этот скрипт задержался, CSS через 3 с показывает их сам (pages.css, rev-late) — страница не остаётся пустой.

@@ -317,7 +317,21 @@ void main() {
     st.setProperty("--glow-d2", `rgba(${soft}, .36)`);
     app.dataset.on = darkOn ? "dark" : "light";
     document.querySelectorAll("[data-swatches] button").forEach((b) => b.classList.toggle("on", b.dataset.id === c.id));
+    // выбор держится до конца визита (sessionStorage), а последний показанный цвет помнится между визитами,
+    // чтобы следующий вход начался с другого (см. startColor)
+    try { sessionStorage.setItem("izum-color", c.id); } catch (e) { /* хранилище недоступно — не страшно */ }
     try { localStorage.setItem("izum-color", c.id); } catch (e) { /* хранилище недоступно — не страшно */ }
+  }
+  // Цвет при входе на сайт — случайный и не тот, что был в прошлый раз. Внутри визита (та же вкладка)
+  // выбранный цвет сохраняется: переход между страницами и перезагрузка его не сбрасывают.
+  function startColor() {
+    const has = (id) => COLORS.some((x) => x.id === id);
+    let cur = null, last = null;
+    try { cur = sessionStorage.getItem("izum-color"); } catch (e) { /* нет доступа к хранилищу */ }
+    if (has(cur)) return cur;
+    try { last = localStorage.getItem("izum-color"); } catch (e) { /* нет доступа к хранилищу */ }
+    const pool = COLORS.filter((x) => x.id !== last);
+    return pool[Math.floor(Math.random() * pool.length)].id;
   }
 
   // ---------- кадр вещи ----------
@@ -681,9 +695,7 @@ void main() {
     ro.observe(topBar); ro.observe(caption);
   }
 
-  let saved = null;
-  try { saved = localStorage.getItem("izum-color"); } catch (e) { /* нет доступа к хранилищу */ }
-  setColor(saved || COLORS[0].id);
+  setColor(startColor());
   layout();
   nodes.forEach(startTurn);
   requestAnimationFrame(frame);
