@@ -25,11 +25,12 @@ main { background: #fff; }
 .dir-go::after { content: "→"; font-size: 16px; transition: transform .3s var(--ease); }
 .dir:hover .dir-go::after { transform: translateX(6px); }
 
-.s-prod { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(30px, 6vw, 100px); background: var(--ink); color: #fff; align-items: start; }
+/* сайт светлый (просьба заказчика 17.11.2026): блок «Производство» на белом, как соседние */
+.s-prod { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(30px, 6vw, 100px); align-items: start; }
 .steps { list-style: none; counter-reset: st; display: grid; }
-.steps li { counter-increment: st; display: grid; grid-template-columns: 54px 1fr; align-items: baseline; padding: 20px 0 18px; border-top: 1px solid rgba(255, 255, 255, .18); }
-.steps li:last-child { border-bottom: 1px solid rgba(255, 255, 255, .18); }
-.steps li::before { content: counter(st, decimal-leading-zero); grid-row: span 2; font-size: 11px; font-weight: 700; letter-spacing: .16em; color: var(--accent-ink); }
+.steps li { counter-increment: st; display: grid; grid-template-columns: 54px 1fr; align-items: baseline; padding: 20px 0 18px; border-top: 1px solid rgba(0, 0, 0, .16); }
+.steps li:last-child { border-bottom: 1px solid rgba(0, 0, 0, .16); }
+.steps li::before { content: counter(st, decimal-leading-zero); grid-row: span 2; font-size: 11px; font-weight: 700; letter-spacing: .16em; opacity: .5; }
 .steps b { font-weight: 900; font-style: italic; text-transform: uppercase; font-size: clamp(18px, 1.9vw, 28px); line-height: 1.05; }
 .steps span { font-size: 14px; opacity: .6; margin-top: 6px; }
 
@@ -66,7 +67,7 @@ main { background: #fff; }
     .dir:not(.dir-main) { grid-row: 2 / span 4; }
   }
 }
-.s-prod .btn { display: inline-block; margin-top: 34px; background: #fff; color: var(--ink); }
+.s-prod .btn { display: inline-block; margin-top: 34px; }
 
 @media (max-width: 900px) {
   .s-dirs, .s-prod { grid-template-columns: 1fr; }
