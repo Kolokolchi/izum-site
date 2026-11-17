@@ -8,7 +8,7 @@
 
   var dlg = document.createElement("dialog");
   dlg.className = "pv";
-  dlg.setAttribute("aria-label", "Фото производства");
+  dlg.setAttribute("aria-label", "Просмотр фото");
   dlg.innerHTML =
     '<div class="pv-fig"><img alt=""></div>' +
     '<div class="pv-bar"><span class="pv-n"></span><span class="pv-cap"></span></div>' +
