@@ -68,20 +68,15 @@
     st.setProperty("--on-plate", pale ? "#ffffff" : darkOn ? "#0d0d0d" : "#ffffff");
     st.setProperty("--accent-ink", lum < 0.3 ? mixHex(rgb, 0.38) : color.hex);
     document.querySelectorAll("[data-swatches] button").forEach((b) => b.classList.toggle("on", b.dataset.id === color.id));
-    // как в hero.js: выбор держится до конца визита, последний цвет помнится между визитами
+    // как в hero.js: выбор держится до конца визита
     try { sessionStorage.setItem("izum-color", color.id); } catch (e) { /* хранилище недоступно */ }
-    try { localStorage.setItem("izum-color", color.id); } catch (e) { /* хранилище недоступно */ }
     tinted.forEach(tint);
   }
-  // Цвет при входе — случайный и не прошлый; внутри визита держится выбранный (та же логика, что в hero.js).
+  // Вход на сайт — с жёлтого; внутри визита держится выбранный цвет (та же логика, что в hero.js).
   function startColor() {
-    const has = (id) => COLORS.some((c) => c.id === id);
-    let cur = null, last = null;
-    try { cur = sessionStorage.getItem("izum-color"); } catch (e) { /* нет доступа */ }
-    if (has(cur)) return cur;
-    try { last = localStorage.getItem("izum-color"); } catch (e) { /* нет доступа */ }
-    const pool = COLORS.filter((c) => c.id !== last);
-    return pool[Math.floor(Math.random() * pool.length)].id;
+    let cur = null;
+    try { cur = sessionStorage.getItem("izum-color"); localStorage.removeItem("izum-color"); } catch (e) { /* нет доступа */ }
+    return COLORS.some((c) => c.id === cur) ? cur : "yellow";
   }
   document.querySelectorAll("[data-swatches]").forEach((box) => {
     box.innerHTML = COLORS.map((c) => `<button type="button" data-id="${c.id}" style="--c:${c.hex}" title="${c.name}" aria-label="${c.name}"></button>`).join("");
