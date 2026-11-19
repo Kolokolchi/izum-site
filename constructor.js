@@ -78,7 +78,7 @@ const PRODUCTS = [
 ];
 PRODUCTS.forEach((p) => p.models.forEach((m) => { m.prod = p; }));
 const MODELS = PRODUCTS.flatMap((p) => p.models);
-const S = { fabric: FABRICS[0], layers: [], sel: null, picks: [], tab: "all", pieces: [], A: 100, H: 0.6, model: null, size: "", sizes: [], k3: [1, 1], seq: 1 };
+const S = { fabric: FABRICS.find((f) => f.id === "white") || FABRICS[0], contrast: true, layers: [], sel: null, picks: [], tab: "all", pieces: [], A: 100, H: 0.6, model: null, size: "", sizes: [], k3: [1, 1], seq: 1 };
 let dirty = true;          // перерисовать 3D
 let model = null;
 
@@ -120,14 +120,15 @@ function ornTile(key, ink) {
   return tileCache.get(k);
 }
 function tinted(L) {
-  if (!L.ink) return L.src;
-  if (L._ink !== L.ink) {
+  const ink = effInk(L);
+  if (!ink) return L.src;
+  if (L._ink !== ink) {
     const c = document.createElement("canvas");
     c.width = L.src.naturalWidth || L.src.width; c.height = L.src.naturalHeight || L.src.height;
     const g = c.getContext("2d");
     g.drawImage(L.src, 0, 0, c.width, c.height);
-    g.globalCompositeOperation = "source-in"; g.fillStyle = L.ink; g.fillRect(0, 0, c.width, c.height);
-    L._tint = c; L._ink = L.ink;
+    g.globalCompositeOperation = "source-in"; g.fillStyle = ink; g.fillRect(0, 0, c.width, c.height);
+    L._tint = c; L._ink = ink;
   }
   return L._tint;
 }
@@ -152,8 +153,8 @@ function toneOf(src) {
 const rgbOf = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
 function fades(L) {
   if (L.type !== "img" || L.ink) return false;
-  const t = toneOf(L.src), f = rgbOf(S.fabric.hex);
-  return !!t && Math.hypot(t[0] - f[0], t[1] - f[1], t[2] - f[2]) < 70;
+  const t = toneOf(L.src);                          // средний цвет картинки против ткани — тоже по APCA
+  return !!t && Math.abs(apca("#" + t.map((v) => Math.round(v).toString(16).padStart(2, "0")).join(""), S.fabric.hex)) < LOW;
 }
 const meas = document.createElement("canvas").getContext("2d");
 function textOf(L) { const f = FONTS[L.font] || FONTS.gotham; return f.upper ? L.text.toUpperCase() : L.text; }
@@ -161,9 +162,31 @@ function fitText(L) {                    // ширина текста следу
   meas.font = (FONTS[L.font] || FONTS.gotham).css;
   L.w = Math.max(1, (meas.measureText(textOf(L) || " ").width / 100) * L.h * 1.32);
 }
-// цвет слоя; если он совпал с тканью, берётся контрастный — иначе нанесение пропадает
-const inkOf = (L) => (L.ink && L.ink.toLowerCase() !== S.fabric.hex.toLowerCase() ? L.ink : defaultInk());
-function defaultInk() { return lum(S.fabric.hex) > 0.55 ? "#0d0d0d" : "#ffffff"; }
+// Цвет слоя на изделии. Совпал с тканью — берётся контрастный, иначе нанесение пропадает. Включён «Контраст нанесений»
+// (S.contrast) — так же и тогда, когда цвет просто сливается с тканью: жёлтый узор на белой ткани, белый знак на жёлтой.
+// Свой цвет слоя (L.ink) не меняется: вернули ткань — вернулся и цвет. null — у картинки свои цвета, у текста и каймы — контрастный.
+// Контраст считается по APCA (пользователь, 18.11.2026): Lc ниже 45 по модулю — порог APCA для крупных знаков с тонкими
+// деталями; у знака Izum и меандра линии тонкие.
+const LOW = 45;
+function effInk(L) {
+  if (!L.ink) return null;
+  const f = S.fabric.hex.toLowerCase();
+  return L.ink.toLowerCase() === f || (S.contrast && Math.abs(apca(L.ink, f)) < LOW) ? defaultInk() : L.ink;
+}
+const inkOf = (L) => effInk(L) || defaultInk();
+// APCA-W3 0.0.98G-4g (основа контраста WCAG 3): Lc цвета нанесения txt на ткани bg, от 0 до ~±108; знак — полярность
+// (+ тёмное на светлом, − светлое на тёмном). Сверено с эталонами APCA: #888 на #fff — 63,06, #fff на #888 — −68,54,
+// #000 на #aaa — 58,15, #aaa на #000 — −56,24.
+function apca(txt, bg) {
+  const lum = (hex) => { const [r, g, b] = rgbOf(hex).map((v) => (v / 255) ** 2.4); const y = 0.2126729 * r + 0.7151522 * g + 0.072175 * b; return y > 0.022 ? y : y + (0.022 - y) ** 1.414; };
+  const t = lum(txt), b = lum(bg);
+  if (Math.abs(b - t) < 0.0005) return 0;
+  if (b > t) { const s = (b ** 0.56 - t ** 0.57) * 1.14; return s < 0.1 ? 0 : (s - 0.027) * 100; }
+  const s = (b ** 0.65 - t ** 0.62) * 1.14;
+  return s > -0.1 ? 0 : (s + 0.027) * 100;
+}
+// контрастный цвет для ткани — чёрный или белый, у какого Lc по APCA больше (на красной, оранжевой, розовой — белый)
+function defaultInk() { const f = S.fabric.hex; return Math.abs(apca("#0d0d0d", f)) >= Math.abs(apca("#ffffff", f)) ? "#0d0d0d" : "#ffffff"; }
 function lum(hex) { const [r, g, b] = [1, 3, 5].map((p) => parseInt(hex.slice(p, p + 2), 16)); return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255; }
 
 // ---------- переход через шов ----------
@@ -845,10 +868,7 @@ const OWN = { id: "own", name: "Свой цвет", hex: "#7d8791", set: false }
 function setFabric(id, asIs, live) {
   S.fabric = id === "own" ? OWN : FABRICS.find((f) => f.id === id) || FABRICS[0];
   if (inner) inner.material.color.set(S.fabric.hex).multiplyScalar(0.42);
-  // белое и чёрное нанесение переворачивается вслед за тканью, чтобы не пропасть на ней
-  // (при отмене шага слои уже лежат в нужных цветах — asIs)
-  const ink = defaultInk();
-  if (!asIs) S.layers.forEach((L) => { if (L.ink === "#ffffff" || L.ink === "#0d0d0d") L.ink = ink; });
+  // нанесение, слившееся с новой тканью, перекрашивает «Контраст нанесений» при рисовании (effInk); свои цвета слоёв не меняются
   [...$("fabric").children].forEach((b) => b.classList.toggle("on", b.dataset.id === S.fabric.id));
   const own = $("fabric").querySelector(".own");
   own.classList.toggle("set", OWN.set); own.style.setProperty("--c", OWN.hex);
@@ -1103,6 +1123,10 @@ function syncPanel() {
     const inks = [...$("pInk").querySelectorAll("button[data-ink]")], ownInk = !!L.ink && !inks.some((b) => b.dataset.ink === L.ink);
     inks.forEach((b) => b.classList.toggle("on", (L.ink || "") === b.dataset.ink));
     $("pInkOwn").classList.toggle("on", ownInk); $("pInkOwn").classList.toggle("set", ownInk); $("pInkOwn").style.setProperty("--c", L.ink || "#fff");
+    // свой цвет слился с тканью и на изделии заменён контрастным — сказать, каким и почему
+    const e = effInk(L), auto = !!e && e.toLowerCase() !== L.ink.toLowerCase();
+    $("pInkAuto").hidden = !auto;
+    if (auto) $("pInkAuto").textContent = `На этой ткани печатается ${e === "#0d0d0d" ? "чёрным" : "белым"}: выбранный цвет с ней сливается. Отключается переключателем «Контраст нанесений» под цветом ткани.`;
     syncProps();
   } else renderLayers();
 }
@@ -1135,7 +1159,50 @@ function renderLayers() {
     li.append(t, d, c); ol.append(li);
   });
 }
+// Порядок слоёв перетаскиванием (просьба пользователя 18.11.2026): строку зажимают левой кнопкой и тянут вверх-вниз —
+// она едет за указателем, остальные расступаются; отпустили — слой встаёт на новое место (верх списка — поверх остальных).
+// Клик без сдвига, как и раньше, выбирает слой; стрелки остаются. Пальцем — за значок слоя: иначе список не прокрутить.
+let sorting = null, sorted = false;
+$("layers").addEventListener("pointerdown", (e) => {
+  if (e.button !== 0 || e.target.closest("button") || (e.pointerType === "touch" && !e.target.closest(".lt"))) return;
+  const li = e.target.closest("li[data-id]"); if (!li) return;
+  const items = [...$("layers").children].filter((x) => x.dataset.id);
+  sorting = { li, items, id: +li.dataset.id, from: items.indexOf(li), to: items.indexOf(li), y0: e.clientY, pid: e.pointerId, on: false };
+});
+addEventListener("pointermove", (e) => {
+  const r = sorting; if (!r || e.pointerId !== r.pid) return;
+  const dy = e.clientY - r.y0;
+  if (!r.on) {
+    if (Math.abs(dy) < 5) return;
+    r.on = true; r.rects = r.items.map((x) => x.getBoundingClientRect());
+    r.step = r.rects.length > 1 ? r.rects[1].top - r.rects[0].top : r.rects[0].height;
+    r.li.classList.add("lift"); $("layers").classList.add("sorting");
+  }
+  e.preventDefault();
+  const d = Math.max(r.rects[0].top - r.rects[r.from].top, Math.min(r.rects[r.rects.length - 1].top - r.rects[r.from].top, dy));
+  r.li.style.transform = `translateY(${d}px)`;
+  r.to = Math.max(0, Math.min(r.items.length - 1, r.from + Math.round(d / r.step)));
+  r.items.forEach((x, k) => {
+    if (x === r.li) return;
+    const s = r.from < r.to && k > r.from && k <= r.to ? -r.step : r.from > r.to && k < r.from && k >= r.to ? r.step : 0;
+    x.style.transform = s ? `translateY(${s}px)` : "";
+  });
+}, { passive: false });
+function endSort(e) {
+  const r = sorting; if (!r || e.pointerId !== r.pid) return;
+  sorting = null;
+  if (!r.on) return;
+  sorted = true; setTimeout(() => { sorted = false; });                 // клик после перетаскивания не выбирает слой
+  $("layers").classList.remove("sorting");
+  const L = S.layers.find((x) => x.id === r.id);
+  if (e.type === "pointerup" && L && r.to !== r.from) {
+    // в списке слои сверху вниз — с конца стопки: строка k списка — S.layers[n - 1 - k]
+    const n = S.layers.length; S.layers.splice(S.layers.indexOf(L), 1); S.layers.splice(n - 1 - r.to, 0, L); changed();
+  } else renderLayers();
+}
+addEventListener("pointerup", endSort); addEventListener("pointercancel", endSort);
 $("layers").addEventListener("click", (e) => {
+  if (sorted) return;
   const li = e.target.closest("li[data-id]"); if (!li) return;
   const L = S.layers.find((x) => x.id === +li.dataset.id), b = e.target.closest("button[data-act]");
   if (b) act(b.dataset.act, L); else if (e.shiftKey) select(L, true); else { select(L); look(L.piece); }
@@ -1147,6 +1214,7 @@ const look = (pid) => fly((piece(pid) || {}).look || "front");
 
 $("fabric").innerHTML = FABRICS.map((c) => `<button type="button" data-id="${c.id}" style="--c:${c.hex}" title="${c.name}" aria-label="${c.name}"></button>`).join("")
   + '<button type="button" data-id="own" class="own" title="Свой цвет" aria-label="Свой цвет ткани"></button>';
+$("contrast").onchange = (e) => { S.contrast = e.target.checked; changed(); };
 $("fabric").onclick = (e) => {
   const b = e.target.closest("button"); if (!b) return;
   if (b.dataset.id !== "own") { setFabric(b.dataset.id); return; }
@@ -1372,7 +1440,9 @@ function spec() {
       : mode === "clip" ? " Только на этой детали, по шву обрезается." : over.length ? " Печать по деталям кроя до пошива, с вылетом на припуск шва." : "";
     const seam = (over.length ? ` Переходит через шов на: ${over.join(", ")}.` : "") + how;
     const pair = L.link ? (L.pair === "mirror" ? " В паре со вторым рукавом, зеркально." : " В паре со вторым рукавом.") : "";
-    lines.push(`${i + 1}. ${p.name}: ${what} — ${size}.${seam}${pair}`);
+    // цвет — тот, которым нанесение печатается на этой ткани (с учётом «Контраста нанесений»)
+    const ink = L.type === "band" && ORNS[L.orn].own ? " Фирменные цвета линии." : L.type === "img" && !L.ink ? " В своих цветах." : ` Цвет ${inkOf(L).toUpperCase()}.`;
+    lines.push(`${i + 1}. ${p.name}: ${what} — ${size}.${seam}${pair}${ink}`);
   });
   if (!vis.length) lines.push("Нанесения нет.");
   return lines.join("\n");

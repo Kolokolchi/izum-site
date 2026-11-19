@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="hero.css?v=1113p">
   <link rel="stylesheet" href="site.css?v=1117e">
   <link rel="stylesheet" href="pages.css?v=1117g">
-  <link rel="stylesheet" href="constructor.css?v=1114x">
+  <link rel="stylesheet" href="constructor.css?v=1118c">
   <script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
 </head>
 <body class="page mk-page" data-theme="light">
@@ -87,6 +87,8 @@
       <div class="mk-group">
         <h2>Цвет ткани</h2>
         <div class="mk-colors" id="fabric"></div>
+        <label class="mk-switch"><input type="checkbox" id="contrast" role="switch" checked><span>Контраст нанесений</span></label>
+        <p class="mk-note">Нанесение, которое сливается с тканью (жёлтый узор на белой, белый знак на жёлтой), печатается чёрным или белым. Выключите, чтобы оставить свои цвета.</p>
       </div>
 
       <div class="mk-group">
@@ -159,6 +161,7 @@
             <button type="button" id="pInkOwn" class="own" title="Свой цвет" aria-label="Свой цвет нанесения"></button>
           </div>
         </div>
+        <p class="mk-note" id="pInkAuto" hidden></p>
         <p class="mk-note mk-warn" id="pFade" hidden>Изображение почти сливается с тканью. <button type="button" id="pFadeFix">Перекрасить в контрастный</button> — или выберите свой цвет заливки.</p>
         <div class="mk-add">
           <button type="button" class="mk-btn mk-ghost" id="pDup">Дублировать</button>
@@ -194,6 +197,6 @@
   </div>
 
   <script src="data.js?v=1113p"></script>
-  <script type="module" src="constructor.js?v=1115h"></script>
+  <script type="module" src="constructor.js?v=1118c"></script>
 </body>
 </html>
