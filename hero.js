@@ -683,6 +683,15 @@ void main() {
   $("dNext").addEventListener("click", () => open(S.active + 1, S.chapter));
   $("dots").addEventListener("click", (ev) => { const b = ev.target.closest("button"); if (b) setChapter(+b.dataset.ch); });
 
+  // Логотип — путь «домой»: из карточки вещи возвращает к очереди, с прокрученной страницы — наверх к слайдеру.
+  // Без этого ссылка #top в открытой карточке ничего не делала: страница и так наверху, а карточка оставалась открытой.
+  topBar.querySelector(".brand").addEventListener("click", (ev) => {
+    ev.preventDefault();
+    if (S.active >= 0) close();
+    const smooth = !(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
+    if (window.scrollY > 0) window.scrollTo({ top: 0, behavior: smooth ? "smooth" : "auto" });
+  });
+
   // цвет
   document.querySelectorAll("[data-swatches]").forEach((box) => {
     box.innerHTML = COLORS.map((c) => `<button type="button" data-id="${c.id}" style="--c:${c.hex}" title="${c.name}" aria-label="${c.name}"></button>`).join("");
